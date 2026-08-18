@@ -219,26 +219,55 @@ function drawDonut(rows){
   const c=$('#donutChart'),setup=canvasSetup(c);if(!setup)return;const {ctx,w,h}=setup,group=['operasi','investasi','pendanaan'].map(type=>({type,value:rows.filter(t=>t.tipe===type).reduce((a,t)=>a+t.nominal,0)})),total=group.reduce((a,x)=>a+x.value,0);ctx.clearRect(0,0,w,h);let angle=-Math.PI/2;group.forEach(x=>{const arc=total?x.value/total*Math.PI*2:Math.PI*2/3;ctx.beginPath();ctx.arc(w/2,h/2,Math.min(w,h)/2-12,angle,angle+arc);ctx.strokeStyle=colors[x.type];ctx.lineWidth=22;ctx.stroke();angle+=arc});ctx.fillStyle=getComputedStyle(document.body).getPropertyValue('--text');ctx.font='700 14px Manrope';ctx.textAlign='center';ctx.fillText(total?shortRupiah(total):'Rp 0',w/2,h/2+5);$('#donutLegend').innerHTML=group.map(x=>`<div><span><i style="background:${colors[x.type]}"></i>${labels[x.type]}</span><strong>${total?Math.round(x.value/total*100):0}%</strong></div>`).join('');
 }
 
+function purposeOptions(selected='operasi_keseharian'){
+  const groups=[['operasi','Aktivitas sehari-hari & kerja'],['investasi','Investasi & aset'],['pendanaan','Utang & modal']];
+  return groups.map(([type,title])=>`<optgroup label="${title}">${purposes.filter(p=>p.tipe===type).map(p=>`<option value="${p.value}" ${p.value===selected?'selected':''}>${p.label}</option>`).join('')}</optgroup>`).join('');
+}
+function categoryOptions(purposeValue,direction,selected=''){
+  return categories[purposeValue][direction].map(x=>`<option ${x===selected?'selected':''}>${x}</option>`).join('');
+}
+function addMultipleRow(values={}){
+  const row=document.createElement('div');row.className='multiple-row';
+  const purpose=values.purpose||'operasi_keseharian',direction=values.direction||'keluar';
+  row.innerHTML=`<div class="multiple-row-head"><strong>Transaksi</strong><button type="button" class="remove-row">Hapus</button></div><div class="multiple-grid">
+    <label>Arah<select class="multi-direction"><option value="keluar" ${direction==='keluar'?'selected':''}>Uang keluar</option><option value="masuk" ${direction==='masuk'?'selected':''}>Uang masuk</option></select></label>
+    <label>Nominal (Rp)<input class="multi-amount" inputmode="numeric" placeholder="0" required></label>
+    <label>Untuk apa?<select class="multi-purpose" required>${purposeOptions(purpose)}</select></label>
+    <label>Kategori<select class="multi-category" required>${categoryOptions(purpose,direction)}</select></label>
+    <label>Tanggal<input class="multi-date" type="date" value="${values.date||isoToday()}" required></label>
+    <label>Catatan <small>(opsional)</small><input class="multi-note" maxlength="200" placeholder="Mis. belanja mingguan"></label>
+  </div>`;
+  $('#multipleRows').append(row);renumberMultipleRows();
+}
+function renumberMultipleRows(){ $$('.multiple-row').forEach((row,index)=>{$('strong',row).textContent=`Transaksi ${index+1}`;$('.remove-row',row).disabled=$$('.multiple-row').length<=2}) }
+function setEntryMode(mode){
+  const multiple=mode==='multiple';$('#singleTransactionFields').classList.toggle('hidden',multiple);$('#multipleTransactionFields').classList.toggle('hidden',!multiple);$('.modal-card',$('#transactionModal')).classList.toggle('multiple-mode',multiple);
+  $$('[data-entry-mode]').forEach(button=>button.classList.toggle('active',button.dataset.entryMode===mode));
+  $$('input,select',$('#singleTransactionFields')).forEach(input=>input.disabled=multiple);$$('input,select',$('#multipleTransactionFields')).forEach(input=>input.disabled=!multiple);
+  $('#saveTransactionBtn').textContent=multiple?'Simpan semua transaksi →':'Simpan transaksi →';
+}
 function openTransaction(txn=null){
   $('#transactionModal').classList.add('open'); $('#editingId').value=txn?.id||''; $('#modalTitle').textContent=txn?'Edit transaksi':'Tambah transaksi';
-  const purposeGroups=[['operasi','Aktivitas sehari-hari & kerja'],['investasi','Investasi & aset'],['pendanaan','Utang & modal']];
-  $('#purposeInput').innerHTML=purposeGroups.map(([type,title])=>`<optgroup label="${title}">${purposes.filter(p=>p.tipe===type).map(p=>`<option value="${p.value}">${p.label}</option>`).join('')}</optgroup>`).join('');
+  $('#purposeInput').innerHTML=purposeOptions();
   const savedPurpose=purposes.find(p=>p.label===txn?.tujuan||p.value===txn?.tujuan);
   $('#purposeInput').value=savedPurpose?.value||purposes.find(p=>p.tipe===(txn?.tipe||'operasi')).value;
   $('#directionInput').value=txn?.arah||'keluar'; $('#dateInput').value=txn?.tanggal||isoToday(); $('#noteInput').value=txn?.deskripsi||''; $('#amountInput').value=txn?new Intl.NumberFormat('id-ID').format(txn.nominal):'';
-  updateDirection(); updateCategories(txn?.kategori);
+  $('#entryModeToggle').classList.toggle('hidden',Boolean(txn));$('#multipleRows').innerHTML='';addMultipleRow();addMultipleRow();setEntryMode('single');updateDirection(); updateCategories(txn?.kategori);
 }
 function closeTransaction(){ $('#transactionModal').classList.remove('open'); }
 function updateDirection(){const dir=$('#directionInput').value;$$('.direction-toggle button').forEach(b=>b.classList.toggle('active',b.dataset.direction===dir));updateCategories()}
 function selectedPurpose(){return purposes.find(p=>p.value===$('#purposeInput').value)||purposes[0]}
 function updateCategories(selected){const purpose=selectedPurpose(),list=categories[purpose.value][$('#directionInput').value];$('#categoryInput').innerHTML=list.map(x=>`<option ${x===selected?'selected':''}>${x}</option>`).join('')}
 async function saveTransaction(e){
-  e.preventDefault();const id=$('#editingId').value,purpose=selectedPurpose(),payload={arah:$('#directionInput').value,tipe:purpose.tipe,tujuan:purpose.label,kategori:$('#categoryInput').value,tanggal:$('#dateInput').value,deskripsi:$('#noteInput').value,nominal:Number($('#amountInput').value.replace(/\D/g,''))};
+  e.preventDefault();const id=$('#editingId').value,multiple=$('[data-entry-mode="multiple"]').classList.contains('active');
+  let payload;
+  if(multiple){payload={transactions:$$('.multiple-row').map(row=>{const purpose=purposes.find(p=>p.value===$('.multi-purpose',row).value);return{arah:$('.multi-direction',row).value,tipe:purpose.tipe,tujuan:purpose.label,kategori:$('.multi-category',row).value,tanggal:$('.multi-date',row).value,deskripsi:$('.multi-note',row).value,nominal:Number($('.multi-amount',row).value.replace(/\D/g,''))}})}}
+  else{const purpose=selectedPurpose();payload={arah:$('#directionInput').value,tipe:purpose.tipe,tujuan:purpose.label,kategori:$('#categoryInput').value,tanggal:$('#dateInput').value,deskripsi:$('#noteInput').value,nominal:Number($('#amountInput').value.replace(/\D/g,''))}}
   try{
-    await api(id?`/api/transactions/${id}`:'/api/transactions',{method:id?'PUT':'POST',body:JSON.stringify(payload)});
+    await api(multiple?'/api/transactions/bulk':id?`/api/transactions/${id}`:'/api/transactions',{method:id?'PUT':'POST',body:JSON.stringify(payload)});
   }catch(error){toast(error.message,true);return}
   closeTransaction();
-  toast(id?'Transaksi berhasil diperbarui.':'Transaksi berhasil disimpan.');
+  toast(id?'Transaksi berhasil diperbarui.':multiple?`${payload.transactions.length} transaksi berhasil disimpan.`:'Transaksi berhasil disimpan.');
   try{await loadTransactions()}catch(error){console.error('Gagal menyegarkan tampilan setelah transaksi tersimpan:',error)}
 }
 async function deleteTransaction(id){if(!confirm('Hapus transaksi ini? Tindakan ini tidak dapat dibatalkan.'))return;try{await api(`/api/transactions/${id}`,{method:'DELETE'});await loadTransactions();toast('Transaksi dihapus.')}catch(e){toast(e.message,true)}}
@@ -313,6 +342,11 @@ function bindEvents(){
     updateDirection();
   });$('#purposeInput').onchange=()=>updateCategories();$('#transactionForm').onsubmit=saveTransaction;
   $('#amountInput').oninput=e=>{const n=e.target.value.replace(/\D/g,'').slice(0,12);e.target.value=n?new Intl.NumberFormat('id-ID').format(n):''};
+  $$('[data-entry-mode]').forEach(button=>button.onclick=()=>setEntryMode(button.dataset.entryMode));
+  $('#addMultipleRow').onclick=()=>{if($$('.multiple-row').length<50)addMultipleRow();else toast('Maksimal 50 transaksi dalam satu batch.',true)};
+  $('#multipleRows').addEventListener('click',e=>{const remove=e.target.closest('.remove-row');if(remove&&$$('.multiple-row').length>2){remove.closest('.multiple-row').remove();renumberMultipleRows()}});
+  $('#multipleRows').addEventListener('change',e=>{if(!e.target.matches('.multi-direction,.multi-purpose'))return;const row=e.target.closest('.multiple-row'),purpose=$('.multi-purpose',row).value,direction=$('.multi-direction',row).value;$('.multi-category',row).innerHTML=categoryOptions(purpose,direction)});
+  $('#multipleRows').addEventListener('input',e=>{if(!e.target.matches('.multi-amount'))return;const n=e.target.value.replace(/\D/g,'').slice(0,12);e.target.value=n?new Intl.NumberFormat('id-ID').format(n):''});
   $('#periodSelect').onchange=e=>{state.period=e.target.value;renderDashboard()};$('#reportPeriod').onchange=renderReport;$('#printReportBtn').onclick=printReport;['searchInput','typeFilter','directionFilter'].forEach(id=>$('#'+id).addEventListener(id==='searchInput'?'input':'change',renderTransactions));
   document.addEventListener('click',e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');if(edit)openTransaction(state.transactions.find(t=>t.id===edit.dataset.edit));if(del)deleteTransaction(del.dataset.delete)});
   $('#eyeBtn').onclick=()=>{state.balanceVisible=!state.balanceVisible;updateBalanceVisibility()};

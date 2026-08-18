@@ -38,6 +38,20 @@ function mapTransaction(row) {
   return result;
 }
 
+function transactionWhere(userId, filters = {}) {
+  const values = [userId];
+  const where = ['user_id = $1'];
+  const add = (sql, value) => { values.push(value); where.push(sql.replace('?', `$${values.length}`)); };
+  if (filters.q) add("LOWER(kategori || ' ' || deskripsi) LIKE ?", `%${String(filters.q).toLowerCase()}%`);
+  if (filters.tipe) add('tipe = ?', filters.tipe);
+  if (filters.arah) add('arah = ?', filters.arah);
+  if (filters.start) add('tanggal >= ?', filters.start);
+  if (filters.end) add('tanggal <= ?', filters.end);
+  if (filters.min != null) add('nominal >= ?', filters.min);
+  if (filters.max != null) add('nominal <= ?', filters.max);
+  return { values, where: where.join(' AND ') };
+}
+
 function createStore(pool) {
   return {
     async findUserByEmail(email) {
@@ -110,20 +124,31 @@ function createStore(pool) {
     },
 
     async listTransactions(userId, filters = {}) {
-      const values = [userId];
-      const where = ['user_id = $1'];
-      const add = (sql, value) => { values.push(value); where.push(sql.replace('?', `$${values.length}`)); };
-      if (filters.q) add("LOWER(kategori || ' ' || deskripsi) LIKE ?", `%${String(filters.q).toLowerCase()}%`);
-      if (filters.tipe) add('tipe = ?', filters.tipe);
-      if (filters.arah) add('arah = ?', filters.arah);
-      if (filters.start) add('tanggal >= ?', filters.start);
-      if (filters.end) add('tanggal <= ?', filters.end);
-      if (filters.min != null) add('nominal >= ?', filters.min);
-      if (filters.max != null) add('nominal <= ?', filters.max);
+      const { values, where } = transactionWhere(userId, filters);
+      let pagination = '';
+      if (filters.limit != null) {
+        values.push(filters.limit);
+        pagination += ` LIMIT $${values.length}`;
+      }
+      if (filters.offset != null) {
+        values.push(filters.offset);
+        pagination += ` OFFSET $${values.length}`;
+      }
       const result = await pool.query(
-        `SELECT * FROM transactions WHERE ${where.join(' AND ')} ORDER BY tanggal DESC, created_at DESC`, values,
+        `SELECT * FROM transactions WHERE ${where} ORDER BY tanggal DESC, created_at DESC${pagination}`, values,
       );
       return result.rows.map(mapTransaction);
+    },
+
+    async countTransactions(userId, filters = {}) {
+      const { values, where } = transactionWhere(userId, filters);
+      const result = await pool.query(`SELECT COUNT(*)::int AS count FROM transactions WHERE ${where}`, values);
+      return Number(result.rows[0].count);
+    },
+
+    async findTransactionById(id, userId) {
+      const result = await pool.query('SELECT * FROM transactions WHERE id=$1 AND user_id=$2', [id, userId]);
+      return mapTransaction(result.rows[0]);
     },
 
     async createTransaction(row) {
@@ -138,6 +163,25 @@ function createStore(pool) {
           row.sample, row.createdAt, row.updatedAt],
       );
       return mapTransaction(result.rows[0]);
+    },
+
+    async createTransactions(rows) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const created = [];
+        for (const row of rows) {
+          const result = await client.query(
+            `INSERT INTO transactions (id, user_id, tanggal, tipe, tujuan, arah, kategori, deskripsi, nominal, jenis, akun_sumber, akun_tujuan, asset_id, liability_id, sample, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+            [row.id,row.userId,row.tanggal,row.tipe,row.tujuan,row.arah,row.kategori,row.deskripsi,row.nominal,row.jenis||null,row.akunSumber||null,row.akunTujuan||null,row.assetId||null,row.liabilityId||null,row.sample,row.createdAt,row.updatedAt],
+          );
+          created.push(mapTransaction(result.rows[0]));
+        }
+        await client.query('COMMIT');
+        return created;
+      } catch (error) { await client.query('ROLLBACK'); throw error; }
+      finally { client.release(); }
     },
 
     async updateTransaction(id, userId, row) {

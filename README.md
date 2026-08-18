@@ -29,6 +29,13 @@ npm start
 
 Buka `http://localhost:3000`. Setiap akun baru dimulai dengan arus kas kosong dan seluruh transaksi hanya dapat diakses oleh pemilik akun tersebut.
 
+## API aplikasi mobile
+
+Backend modular berada di folder `api/` dan tersedia melalui base URL `/api/v1`.
+Kontrak endpoint, autentikasi, pagination, dashboard, dan laporan tersedia di
+[`api/README.md`](api/README.md). Endpoint `/api` lama tetap tersedia agar web client
+tidak mengalami breaking change.
+
 Untuk development dengan auto-reload:
 
 ```bash

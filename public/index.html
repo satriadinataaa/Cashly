@@ -113,12 +113,16 @@
     <div class="modal-backdrop" data-close-modal></div><div class="modal-card">
       <div class="modal-head"><div><span class="eyebrow">CATAT CEPAT</span><h2 id="modalTitle">Tambah transaksi</h2></div><button class="close-btn" data-close-modal aria-label="Tutup">×</button></div>
       <form id="transactionForm">
+        <div id="entryModeToggle" class="entry-mode-toggle" aria-label="Mode pencatatan"><button type="button" data-entry-mode="single" class="active">Satu transaksi</button><button type="button" data-entry-mode="multiple">Multiple</button></div>
+        <div id="singleTransactionFields">
         <div class="direction-toggle"><button type="button" data-direction="keluar" class="active">↗ Uang keluar</button><button type="button" data-direction="masuk">↙ Uang masuk</button></div>
         <input id="editingId" type="hidden"><input id="directionInput" type="hidden" value="keluar">
         <label>Nominal<div class="money-input"><span>Rp</span><input id="amountInput" inputmode="numeric" placeholder="0" required></div></label>
         <div class="form-row"><label>Untuk apa?<select id="purposeInput" required></select></label><label>Kategori<select id="categoryInput" required></select></label></div>
         <div class="form-row"><label>Tanggal<input id="dateInput" type="date" required></label><label>Catatan <small>(opsional)</small><input id="noteInput" maxlength="200" placeholder="Mis. belanja mingguan"></label></div>
-        <div class="modal-actions"><button type="button" class="btn ghost" data-close-modal>Batal</button><button type="submit" class="btn primary">Simpan transaksi →</button></div>
+        </div>
+        <div id="multipleTransactionFields" class="hidden"><p class="multiple-hint">Tambahkan beberapa transaksi lalu simpan sekaligus.</p><div id="multipleRows" class="multiple-rows"></div><button id="addMultipleRow" type="button" class="btn ghost add-row-btn">＋ Tambah baris</button></div>
+        <div class="modal-actions"><button type="button" class="btn ghost" data-close-modal>Batal</button><button id="saveTransactionBtn" type="submit" class="btn primary">Simpan transaksi →</button></div>
       </form>
     </div>
   </div>

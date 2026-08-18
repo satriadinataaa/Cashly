@@ -63,6 +63,20 @@ test('transaksi dapat ditambah, diubah, dan dihapus', async () => {
   assert.equal(rows.body.length, 0);
 });
 
+test('beberapa transaksi dapat disimpan sekaligus', async () => {
+  const login = await request(app).post('/api/auth/login').send({ email:'rani@test.id', password:'password-baru' });
+  const auth = { Authorization:`Bearer ${login.body.token}` };
+  const transactions = [
+    { tanggal:'2026-08-18', tipe:'operasi', tujuan:'Pekerjaan & usaha', arah:'masuk', kategori:'Bonus', deskripsi:'Bonus proyek', nominal:500000 },
+    { tanggal:'2026-08-18', tipe:'operasi', tujuan:'Kebutuhan sehari-hari', arah:'keluar', kategori:'Transportasi Umum', deskripsi:'Kereta', nominal:25000 },
+  ];
+  const created = await request(app).post('/api/transactions/bulk').set(auth).send({ transactions });
+  assert.equal(created.status, 201);assert.equal(created.body.length, 2);assert.equal(created.body[0].kategori, 'Bonus');
+  const invalid = await request(app).post('/api/transactions/bulk').set(auth).send({ transactions:[transactions[0],{ ...transactions[1], nominal:0 }] });
+  assert.equal(invalid.status, 400);assert.match(invalid.body.message, /Transaksi 2/);
+  for (const row of created.body) await request(app).delete(`/api/transactions/${row.id}`).set(auth);
+});
+
 test('arus kas terisolasi untuk setiap user', async () => {
   const firstLogin = await request(app).post('/api/auth/login').send({ email:'rani@test.id', password:'password-baru' });
   const firstAuth = { Authorization:`Bearer ${firstLogin.body.token}` };
@@ -101,6 +115,62 @@ test('transfer API mewajibkan rekening sumber dan tujuan', async () => {
   const login = await request(app).post('/api/auth/login').send({ email:'accounting@test.id', password:'passwordku' });
   const res = await request(app).post('/api/transactions').set('Authorization', `Bearer ${login.body.token}`).send({ tanggal:'2026-08-13', tipe:'operasi', jenis:'transfer', arah:'keluar', kategori:'Transfer', nominal:5_000_000 });
   assert.equal(res.status, 400);
+});
+
+test('API v1 menyediakan health check dan katalog transaksi untuk mobile', async () => {
+  const health = await request(app).get('/api/v1/health');
+  assert.equal(health.status, 200);
+  assert.equal(health.body.status, 'ok');
+  const catalog = await request(app).get('/api/v1/catalog');
+  assert.equal(catalog.status, 200);
+  assert.equal(catalog.body.types.length, 3);
+  assert.ok(catalog.body.types[0].purposes[0].categories.keluar.length > 0);
+  assert.deepEqual(catalog.body.constraints.transferRequiredFields, ['akunSumber', 'akunTujuan']);
+});
+
+test('API v1 mendukung detail, patch, dan pagination transaksi mobile', async () => {
+  const registered = await request(app).post('/api/v1/auth/register').send({
+    name: 'Mobile Test', email: 'mobile@test.id', password: 'passwordku',
+  });
+  const auth = { Authorization: `Bearer ${registered.body.token}` };
+  const payloads = [
+    { tanggal:'2026-08-18', tipe:'operasi', jenis:'income', arah:'masuk', kategori:'Gaji', nominal:10_000_000 },
+    { tanggal:'2026-08-18', tipe:'operasi', jenis:'expense', arah:'keluar', kategori:'Makan & Minum', nominal:1_000_000 },
+    { tanggal:'2026-08-17', tipe:'investasi', jenis:'investment', arah:'keluar', kategori:'Pembelian Emas', nominal:2_000_000, assetId:'gold' },
+  ];
+  const created = [];
+  for (const payload of payloads) created.push(await request(app).post('/api/v1/transactions').set(auth).send(payload));
+  const detail = await request(app).get(`/api/v1/transactions/${created[1].body.id}`).set(auth);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.body.kategori, 'Makan & Minum');
+  const patched = await request(app).patch(`/api/v1/transactions/${created[1].body.id}`).set(auth).send({ nominal:1_250_000 });
+  assert.equal(patched.status, 200);
+  assert.equal(patched.body.nominal, 1_250_000);
+  const page = await request(app).get('/api/v1/transactions?limit=2&page=1').set(auth);
+  assert.equal(page.status, 200);
+  assert.equal(page.body.length, 2);
+  assert.equal(page.headers['x-total-count'], '3');
+  assert.equal(page.headers['x-has-more'], 'true');
+});
+
+test('API dashboard dan laporan mobile dihitung di server serta terisolasi', async () => {
+  const login = await request(app).post('/api/v1/auth/login').send({ email:'mobile@test.id', password:'passwordku' });
+  const auth = { Authorization: `Bearer ${login.body.token}` };
+  const dashboard = await request(app).get('/api/v1/dashboard?period=all&timezone=Asia/Jakarta').set(auth);
+  assert.equal(dashboard.status, 200);
+  assert.equal(dashboard.body.counts.total, 3);
+  assert.equal(dashboard.body.flow.income, 10_000_000);
+  assert.equal(dashboard.body.flow.expense, 1_250_000);
+  assert.equal(dashboard.body.flow.investment, 2_000_000);
+  assert.equal(dashboard.body.lifetime.cashBalance, 6_750_000);
+  assert.equal(dashboard.body.expenses.byCategory[0].category, 'Makan & Minum');
+  assert.equal(dashboard.body.trend.length, 2);
+  const report = await request(app).get('/api/v1/reports/cash-flow?start=2026-08-17&end=2026-08-18').set(auth);
+  assert.equal(report.status, 200);
+  assert.equal(report.body.activities.length, 3);
+  assert.equal(report.body.totals.net, 6_750_000);
+  const unauthorized = await request(app).get('/api/v1/dashboard?period=all');
+  assert.equal(unauthorized.status, 401);
 });
 
 test.after(async () => pool.end());
