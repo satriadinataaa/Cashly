@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Cashly Admin — insight dan kesehatan produk." />
+  <title>Cashly Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#"><span class="brand-mark">C</span><span>Cashly <small>ADMIN</small></span></a>
+      <nav>
+        <p>WORKSPACE</p>
+        <a class="nav-link active" href="#overview" data-view="overview"><span data-icon="grid"></span>Overview</a>
+        <a class="nav-link" href="#users" data-view="users"><span data-icon="users"></span>Pengguna</a>
+        <a class="nav-link" href="#transactions" data-view="transactions"><span data-icon="swap"></span>Transaksi</a>
+        <a class="nav-link" href="#reports" data-view="reports"><span data-icon="chart"></span>Laporan</a>
+        <p>SYSTEM</p>
+        <a class="nav-link" href="#notifications" data-view="notifications"><span data-icon="bell"></span>Notifikasi <b>3</b></a>
+        <a class="nav-link" href="#settings" data-view="settings"><span data-icon="settings"></span>Pengaturan</a>
+      </nav>
+      <div class="system-card"><div><i></i><strong>Semua sistem normal</strong></div><span>Terakhir dicek 2 menit lalu</span></div>
+      <div class="admin-profile"><span class="avatar">AR</span><div><strong>Admin Raya</strong><small>Super Admin</small></div><button aria-label="Menu pengguna">•••</button></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-btn" id="menuBtn" aria-label="Buka menu"><span data-icon="menu"></span></button>
+        <label class="search"><span data-icon="search"></span><input id="searchInput" placeholder="Cari pengguna, transaksi..."/><kbd>⌘ K</kbd></label>
+        <div class="top-actions"><button class="icon-button" aria-label="Notifikasi"><span data-icon="bell"></span><i></i></button><span class="separator"></span><span class="mini-avatar">AR</span></div>
+      </header>
+
+      <section class="content" id="dashboard">
+        <div class="heading"><div><p class="eyebrow">OVERVIEW</p><h1>Selamat pagi, Admin <span>👋</span></h1><p>Berikut ringkasan performa Cashly hari ini.</p></div><div class="heading-actions"><button class="date-button" id="dateButton"><span data-icon="calendar"></span><span id="dateLabel">01–18 Agustus 2026</span><span data-icon="chevron"></span></button><button class="export-button" id="exportButton"><span data-icon="download"></span>Export</button></div></div>
+
+        <div class="metric-grid" id="metricGrid"></div>
+
+        <div class="analytics-grid">
+          <article class="card growth-card">
+            <div class="card-head"><div><h2>Pertumbuhan pengguna</h2><p>Pengguna baru dan aktif dalam 7 bulan terakhir</p></div><div class="legend"><span><i class="green"></i>Pengguna aktif</span><span><i class="mint"></i>Pengguna baru</span></div></div>
+            <div class="chart-wrap"><div class="y-axis"><span>12k</span><span>9k</span><span>6k</span><span>3k</span><span>0</span></div><svg id="growthChart" role="img" aria-label="Grafik pertumbuhan pengguna"></svg></div>
+          </article>
+          <article class="card health-card">
+            <div class="card-head"><div><h2>Kesehatan cash flow</h2><p>Distribusi kondisi pengguna bulan ini</p></div><button class="dots">•••</button></div>
+            <div class="health-content"><div class="donut" id="healthDonut"><div><strong>8.492</strong><span>Pengguna</span></div></div><div class="health-legend" id="healthLegend"></div></div>
+            <div class="insight-note"><span data-icon="spark"></span><p><strong>Insight</strong><br>67% pengguna memiliki cash flow sehat, naik <b>4,2%</b> dari bulan lalu.</p></div>
+          </article>
+        </div>
+
+        <div class="bottom-grid">
+          <article class="card categories-card"><div class="card-head"><div><h2>Kategori transaksi teratas</h2><p>Berdasarkan volume transaksi bulan ini</p></div><button class="text-button">Lihat semua <span data-icon="arrow"></span></button></div><div id="categories"></div></article>
+          <article class="card activity-card"><div class="card-head"><div><h2>Aktivitas terbaru</h2><p>Aktivitas penting di platform</p></div><button class="dots">•••</button></div><div id="activities"></div></article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
