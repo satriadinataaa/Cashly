@@ -66,7 +66,14 @@ const dateLabel = d => new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'sho
 async function api(path, options={}) {
   const headers = { 'Content-Type':'application/json', ...(options.headers||{}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const res = await fetch(path,{...options,headers});
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(),12000);
+  let res;
+  try { res = await fetch(path,{...options,headers,signal:options.signal||controller.signal}); }
+  catch(error) {
+    if(error.name==='AbortError') throw new Error('Koneksi terlalu lama. Periksa jaringan lalu coba lagi.');
+    throw new Error('Tidak dapat terhubung ke server.');
+  } finally { clearTimeout(timeout); }
   if (res.status === 401 && !path.includes('/auth/')) logout();
   const data = res.status === 204 ? null : await res.json().catch(()=>({}));
   if (!res.ok) throw new Error(data.message || 'Permintaan gagal.');
@@ -104,16 +111,24 @@ async function init(){
   applyTheme(localStorage.getItem('cashly_theme') || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
   bindEvents();
   if(!state.token) return showAuth();
-  try { state.user=await api('/api/me'); await enterApp(); } catch { showAuth(); }
+  try {
+    const [user,transactions]=await Promise.all([api('/api/me'),api('/api/transactions')]);
+    state.user=user;state.transactions=transactions;await enterApp(true);
+  } catch(error) { showAuth();if(state.token)toast(error.message,true); }
 }
 function showAuth(){ $('#authView').classList.remove('hidden'); $('#appView').classList.add('hidden'); }
-async function enterApp(){
+async function enterApp(dataLoaded=false){
   $('#authView').classList.add('hidden'); $('#appView').classList.remove('hidden');
   $('#userName').textContent=state.user.name; $('#userEmail').textContent=state.user.email; $('#avatar').textContent=state.user.name[0].toUpperCase(); $('#greetingName').textContent=state.user.name.split(' ')[0];
-  await loadTransactions(); if(!state.user.onboardingDone) openOnboarding();
+  if(!dataLoaded)await loadTransactions();else renderCurrentPage();
+  if(!state.user.onboardingDone) openOnboarding();
 }
-async function loadTransactions(){ state.transactions=await api('/api/transactions'); renderAll(); }
-function renderAll(){ renderDashboard(); renderTransactions(); renderReport(); }
+async function loadTransactions(){ state.transactions=await api('/api/transactions'); renderCurrentPage(); }
+function renderCurrentPage(){
+  if(state.page==='dashboard')renderDashboard();
+  else if(state.page==='transactions')renderTransactions();
+  else if(state.page==='report')renderReport();
+}
 
 function renderDashboard(){
   const rows=filteredByPeriod(state.transactions,state.period); const sum=totals(rows); const overall=totals(state.transactions);
@@ -222,7 +237,7 @@ async function saveTransaction(e){
 }
 async function deleteTransaction(id){if(!confirm('Hapus transaksi ini? Tindakan ini tidak dapat dibatalkan.'))return;try{await api(`/api/transactions/${id}`,{method:'DELETE'});await loadTransactions();toast('Transaksi dihapus.')}catch(e){toast(e.message,true)}}
 
-function navigate(page){state.page=page;$$('.page').forEach(x=>x.classList.toggle('active',x.id===`${page}Page`));$$('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('.sidebar').classList.remove('open');scrollTo(0,0);if(page==='dashboard')setTimeout(renderDashboard,20)}
+function navigate(page){state.page=page;$$('.page').forEach(x=>x.classList.toggle('active',x.id===`${page}Page`));$$('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('.sidebar').classList.remove('open');scrollTo(0,0);setTimeout(renderCurrentPage,20)}
 function applyTheme(theme){document.body.classList.toggle('dark',theme==='dark');localStorage.setItem('cashly_theme',theme);$('#themeBtn').textContent=theme==='dark'?'☀':'☾';if($('#mobileTheme'))$('#mobileTheme').firstChild.textContent=theme==='dark'?'☀':'☾'}
 function toggleTheme(){applyTheme(document.body.classList.contains('dark')?'light':'dark');renderDashboard()}
 function logout(){localStorage.removeItem('cashly_token');state.token=null;state.user=null;showAuth()}

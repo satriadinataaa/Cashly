@@ -2,6 +2,20 @@
 
 Aplikasi web Node.js untuk mencatat arus kas pribadi berdasarkan tiga klasifikasi akuntansi: operasi, investasi, dan pendanaan.
 
+## Clone otomatis di Windows
+
+Simpan `clone-cashly.ps1`, lalu jalankan dari folder tempat proyek ingin dibuat:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\clone-cashly.ps1
+```
+
+Untuk memilih nama folder tujuan:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\clone-cashly.ps1 -TargetDirectory WebsiteMoneyTracker
+```
+
 ## Menjalankan aplikasi
 
 Siapkan database dan pengguna PostgreSQL, salin `.env.example` menjadi `.env`, lalu isi
