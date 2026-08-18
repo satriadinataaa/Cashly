@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const routerPromise = import('../admin/src/router.mjs');
 
 test('daftar key detail metrik stabil dan tidak dapat diubah', async () => {
-  const { METRIC_DETAIL_KEYS } = await routerPromise;
+  const { ADMIN_PAGE_VIEWS, METRIC_DETAIL_KEYS } = await routerPromise;
 
   assert.deepEqual(METRIC_DETAIL_KEYS, [
     'total-users',
@@ -13,6 +13,8 @@ test('daftar key detail metrik stabil dan tidak dapat diubah', async () => {
     'transaction-volume',
   ]);
   assert.equal(Object.isFrozen(METRIC_DETAIL_KEYS), true);
+  assert.deepEqual(ADMIN_PAGE_VIEWS, ['overview', 'users', 'transactions', 'reports']);
+  assert.equal(Object.isFrozen(ADMIN_PAGE_VIEWS), true);
 });
 
 test('hash kosong dan overview menuju halaman overview', async () => {
@@ -27,11 +29,13 @@ test('hash kosong dan overview menuju halaman overview', async () => {
   }
 });
 
-test('hash users menuju halaman pengguna', async () => {
+test('hash halaman sidebar menuju halaman admin terkait', async () => {
   const { parseAdminRoute } = await routerPromise;
 
   assert.deepEqual(parseAdminRoute('#users'), { view: 'users' });
   assert.deepEqual(parseAdminRoute('#%75sers'), { view: 'users' });
+  assert.deepEqual(parseAdminRoute('#transactions'), { view: 'transactions' });
+  assert.deepEqual(parseAdminRoute('#reports'), { view: 'reports' });
 });
 
 test('setiap key metrik memiliki rute detail', async () => {
@@ -50,7 +54,7 @@ test('setiap key metrik memiliki rute detail', async () => {
 test('rute asing dan malformed menjadi unavailable dengan target aman', async () => {
   const { parseAdminRoute } = await routerPromise;
 
-  assert.deepEqual(parseAdminRoute('#reports'), { view: 'unavailable', target: 'reports' });
+  assert.deepEqual(parseAdminRoute('#settings'), { view: 'unavailable', target: 'settings' });
   assert.deepEqual(parseAdminRoute('#detail/unknown-metric'), {
     view: 'unavailable',
     target: 'unknown-metric',
@@ -85,6 +89,8 @@ test('adminRouteHash menghasilkan hash kanonis dan menolak detail asing', async 
 
   assert.equal(adminRouteHash({ view: 'overview' }), '#overview');
   assert.equal(adminRouteHash({ view: 'users' }), '#users');
+  assert.equal(adminRouteHash({ view: 'transactions' }), '#transactions');
+  assert.equal(adminRouteHash({ view: 'reports' }), '#reports');
   assert.equal(
     adminRouteHash({ view: 'detail', key: 'active-users' }),
     '#detail/active-users',
@@ -99,6 +105,8 @@ test('rute yang didukung dapat round-trip melalui hash kanonis', async () => {
   const routes = [
     { view: 'overview' },
     { view: 'users' },
+    { view: 'transactions' },
+    { view: 'reports' },
     ...METRIC_DETAIL_KEYS.map(key => ({ view: 'detail', key })),
   ];
 

@@ -122,6 +122,222 @@
         </article>
       </section>
 
+      <section class="content admin-page transactions-page hidden" id="transactionsPage" aria-labelledby="transactionsTitle">
+        <div class="heading page-heading">
+          <div>
+            <p class="eyebrow">TRANSAKSI</p>
+            <h1 id="transactionsTitle">Aktivitas transaksi</h1>
+            <p>Telusuri seluruh arus dana pengguna Cashly langsung dari database.</p>
+          </div>
+          <button class="refresh-button" id="transactionsRefresh" type="button">
+            <span data-icon="refresh"></span>
+            <span>Perbarui data</span>
+          </button>
+        </div>
+
+        <div class="page-summary-grid transaction-summary-grid" aria-label="Ringkasan transaksi">
+          <article class="page-summary-card">
+            <span class="summary-icon green" data-icon="swap"></span>
+            <div><small>Total transaksi</small><strong id="transactionsTotal">&mdash;</strong></div>
+          </article>
+          <article class="page-summary-card">
+            <span class="summary-icon blue" data-icon="wallet"></span>
+            <div><small>Volume transaksi</small><strong id="transactionsVolume">&mdash;</strong></div>
+          </article>
+          <article class="page-summary-card">
+            <span class="summary-icon purple" data-icon="arrow"></span>
+            <div><small>Dana masuk</small><strong id="transactionsInflow">&mdash;</strong></div>
+          </article>
+          <article class="page-summary-card">
+            <span class="summary-icon orange" data-icon="arrow"></span>
+            <div><small>Dana keluar</small><strong id="transactionsOutflow">&mdash;</strong></div>
+          </article>
+        </div>
+
+        <article class="card data-page-card transactions-card">
+          <div class="data-page-toolbar">
+            <div class="data-page-title">
+              <h2>Daftar transaksi</h2>
+              <p id="transactionsResultLabel" aria-live="polite">Memuat transaksi dari database...</p>
+            </div>
+            <div class="transaction-filters" role="group" aria-label="Filter transaksi">
+              <label class="data-search">
+                <span data-icon="search" aria-hidden="true"></span>
+                <span class="sr-only">Cari transaksi atau pengguna</span>
+                <input id="transactionSearch" type="search" placeholder="Cari transaksi atau pengguna..." autocomplete="off">
+              </label>
+              <label class="select-field">
+                <span class="sr-only">Filter tipe transaksi</span>
+                <select id="transactionType" aria-label="Filter tipe transaksi">
+                  <option value="all">Semua tipe</option>
+                  <option value="operasi">Operasi</option>
+                  <option value="investasi">Investasi</option>
+                  <option value="pendanaan">Pendanaan</option>
+                </select>
+              </label>
+              <label class="select-field">
+                <span class="sr-only">Filter arah transaksi</span>
+                <select id="transactionDirection" aria-label="Filter arah transaksi">
+                  <option value="all">Semua arah</option>
+                  <option value="masuk">Dana masuk</option>
+                  <option value="keluar">Dana keluar</option>
+                </select>
+              </label>
+              <label class="select-field">
+                <span class="sr-only">Filter periode transaksi</span>
+                <select id="transactionPeriod" aria-label="Filter periode transaksi">
+                  <option value="month">Bulan ini</option>
+                  <option value="today">Hari ini</option>
+                  <option value="week">Minggu ini</option>
+                  <option value="year">Tahun ini</option>
+                  <option value="all">Semua periode</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table transactions-table">
+              <thead>
+                <tr><th>Transaksi</th><th>Pengguna</th><th>Tipe</th><th>Arah</th><th>Nominal</th><th>Tanggal</th></tr>
+              </thead>
+              <tbody id="transactionsTableBody" aria-live="polite">
+                <tr class="table-state-row"><td colspan="6" class="table-state"><span class="detail-loading-spinner" aria-hidden="true"></span>Memuat transaksi dari database...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="data-page-footer">
+            <span id="transactionsRange">0 transaksi</span>
+            <div class="pagination" aria-label="Navigasi halaman transaksi">
+              <button id="transactionsPrev" type="button" aria-label="Halaman transaksi sebelumnya" disabled>&larr;</button>
+              <span id="transactionsPageLabel">Halaman 1 dari 1</span>
+              <button id="transactionsNext" type="button" aria-label="Halaman transaksi berikutnya" disabled>&rarr;</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="content admin-page reports-page hidden" id="reportsPage" aria-labelledby="reportsTitle">
+        <div class="heading page-heading reports-heading">
+          <div>
+            <p class="eyebrow">LAPORAN</p>
+            <h1 id="reportsTitle">Laporan performa</h1>
+            <p>Ringkasan arus dana, transaksi, dan pertumbuhan pengguna dalam satu laporan.</p>
+          </div>
+          <div class="report-heading-actions">
+            <label class="report-period-field">
+              <span data-icon="calendar" aria-hidden="true"></span>
+              <span class="sr-only">Periode laporan</span>
+              <select id="reportPeriod" aria-label="Pilih periode laporan">
+                <option value="month">Bulan ini</option>
+                <option value="quarter">Kuartal ini</option>
+                <option value="year">Tahun berjalan</option>
+                <option value="all">Semua periode</option>
+              </select>
+            </label>
+            <button class="refresh-button" id="reportsRefresh" type="button">
+              <span data-icon="refresh"></span>
+              <span>Perbarui data</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="report-kpi-grid" aria-label="Indikator utama laporan">
+          <article class="report-kpi-card">
+            <span class="report-kpi-label">Jumlah transaksi</span>
+            <strong id="reportTransactionCount">&mdash;</strong>
+            <small>Transaksi pada periode ini</small>
+          </article>
+          <article class="report-kpi-card">
+            <span class="report-kpi-label">Volume transaksi</span>
+            <strong id="reportVolume">&mdash;</strong>
+            <small>Akumulasi dana bergerak</small>
+          </article>
+          <article class="report-kpi-card report-kpi-positive">
+            <span class="report-kpi-label">Dana masuk</span>
+            <strong id="reportInflow">&mdash;</strong>
+            <small>Total arus masuk</small>
+          </article>
+          <article class="report-kpi-card report-kpi-negative">
+            <span class="report-kpi-label">Dana keluar</span>
+            <strong id="reportOutflow">&mdash;</strong>
+            <small>Total arus keluar</small>
+          </article>
+          <article class="report-kpi-card report-kpi-emphasis">
+            <span class="report-kpi-label">Arus bersih</span>
+            <strong id="reportNetFlow">&mdash;</strong>
+            <small>Selisih masuk dan keluar</small>
+          </article>
+          <article class="report-kpi-card">
+            <span class="report-kpi-label">Pengguna aktif</span>
+            <strong id="reportActiveUsers">&mdash;</strong>
+            <small>Bertransaksi pada periode ini</small>
+          </article>
+        </div>
+
+        <div class="report-primary-grid">
+          <article class="card report-trend-card">
+            <div class="report-card-head">
+              <div><h2>Tren arus dana</h2><p>Perbandingan dana masuk dan keluar sepanjang periode.</p></div>
+              <div class="report-legend" aria-label="Legenda grafik"><span><i class="inflow"></i>Dana masuk</span><span><i class="outflow"></i>Dana keluar</span></div>
+            </div>
+            <div class="report-chart-shell" tabindex="0" aria-label="Grafik tren; gulir secara horizontal pada layar kecil">
+              <svg class="report-trend-chart" id="reportTrendChart" role="img" aria-labelledby="reportTrendTitle reportTrendDescription" preserveAspectRatio="xMidYMid meet">
+                <title id="reportTrendTitle">Grafik tren dana masuk dan dana keluar</title>
+                <desc id="reportTrendDescription">Grafik batang yang membandingkan volume dana masuk dan keluar pada setiap interval periode laporan.</desc>
+              </svg>
+              <div class="report-chart-state" id="reportTrendEmpty" role="status">
+                <span class="detail-loading-spinner" aria-hidden="true"></span>
+                <span>Memuat tren arus dana...</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card report-breakdown-card">
+            <div class="report-card-head"><div><h2>Komposisi transaksi</h2><p>Distribusi volume berdasarkan tipe.</p></div></div>
+            <div class="report-breakdown-list" id="reportTypeBreakdown" aria-live="polite">
+              <div class="report-loading" role="status"><span class="detail-loading-spinner" aria-hidden="true"></span>Memuat komposisi transaksi...</div>
+            </div>
+          </article>
+        </div>
+
+        <div class="report-secondary-grid">
+          <article class="card report-categories-card">
+            <div class="report-card-head"><div><h2>Kategori teratas</h2><p>Kategori dengan volume terbesar pada periode ini.</p></div></div>
+            <div class="report-category-list" id="reportCategories" aria-live="polite">
+              <div class="report-loading" role="status"><span class="detail-loading-spinner" aria-hidden="true"></span>Memuat kategori...</div>
+            </div>
+          </article>
+
+          <article class="card report-cashflow-card">
+            <div class="report-card-head"><div><h2>Rincian cash flow</h2><p>Rekap arus dana berdasarkan aktivitas.</p></div></div>
+            <div class="report-table-wrap">
+              <table class="report-table">
+                <thead><tr><th>Aktivitas</th><th>Dana masuk</th><th>Dana keluar</th><th>Arus bersih</th></tr></thead>
+                <tbody id="reportCashFlowBody" aria-live="polite">
+                  <tr class="table-state-row"><td colspan="4" class="table-state"><span class="detail-loading-spinner" aria-hidden="true"></span>Memuat rincian cash flow...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <article class="card report-users-card">
+          <div class="report-card-head"><div><h2>Kesehatan basis pengguna</h2><p>Snapshot pengguna dan progres onboarding dalam periode laporan.</p></div></div>
+          <div class="report-user-grid">
+            <div><span>Total pengguna</span><strong id="reportUsersTotal">&mdash;</strong><small>Terdaftar di Cashly</small></div>
+            <div><span>Pengguna aktif</span><strong id="reportUsersActive">&mdash;</strong><small>Bertransaksi pada periode ini</small></div>
+            <div><span>Pengguna baru</span><strong id="reportUsersNew">&mdash;</strong><small>Bergabung di periode ini</small></div>
+            <div><span>Onboarding selesai</span><strong id="reportUsersOnboarding">&mdash;</strong><small>Sudah mulai mencatat</small></div>
+          </div>
+        </article>
+
+        <aside class="report-export-card" aria-labelledby="reportExportTitle">
+          <div class="report-export-icon" data-icon="download" aria-hidden="true"></div>
+          <div><h2 id="reportExportTitle">Simpan laporan untuk dibagikan</h2><p>Ekspor ringkasan periode aktif ke CSV untuk dibagikan atau diolah.</p></div>
+          <button class="export-button report-export-button" id="reportExport" type="button" disabled><span data-icon="download"></span>Export laporan</button>
+        </aside>
+      </section>
+
       <section class="content admin-page metric-detail-page hidden" id="metricDetailPage" aria-labelledby="detailTitle">
         <nav class="detail-breadcrumb" aria-label="Navigasi halaman detail">
           <button class="detail-back" id="detailBack" type="button">

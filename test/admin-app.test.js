@@ -25,12 +25,20 @@ test('halaman admin tersedia pada /admin di aplikasi utama', async () => {
   assert.match(page.text, /Cashly Admin/);
   assert.match(page.text, /id="loginForm"/);
   assert.match(page.text, /id="metricDetailPage"/);
+  assert.match(page.text, /id="transactionsPage"/);
+  assert.match(page.text, /id="reportsPage"/);
+  assert.match(page.text, /id="reportTrendDescription"/);
+  assert.match(page.text, /id="reportExport"[^>]*disabled/);
   assert.match(page.headers['cache-control'], /no-store/);
 
   const script = await request(app).get('/admin/src/main.js');
   assert.equal(script.status, 200);
   assert.match(script.text, /\/api\/admin/);
   assert.match(script.text, /router\.mjs/);
+  assert.match(script.text, /\/transactions\?/);
+  assert.match(script.text, /\/reports\?period=/);
+  assert.match(script.text, /setReportError/);
+  assert.match(script.text, /loadOverview/);
 
   const router = await request(app).get('/admin/src/router.mjs');
   assert.equal(router.status, 200);
@@ -43,6 +51,8 @@ test('endpoint admin menolak akses anonim dan Bearer JWT pengguna', async () => 
 
   const anonymousDetail = await request(app).get('/api/admin/insights/total-users');
   assert.equal(anonymousDetail.status, 401);
+  assert.equal((await request(app).get('/api/admin/transactions')).status, 401);
+  assert.equal((await request(app).get('/api/admin/reports')).status, 401);
 
   const registered = await request(app).post('/api/auth/register').send({
     name: 'User Biasa', email: 'user-biasa@test.id', password: 'passwordku',
@@ -102,6 +112,17 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
   const searchedUsers = await agent.get('/api/admin/users?q=user-biasa&status=new');
   assert.equal(searchedUsers.status, 200);
   assert.equal(searchedUsers.body.items[0].email, 'user-biasa@test.id');
+
+  const transactions = await agent.get('/api/admin/transactions?period=all&limit=5');
+  assert.equal(transactions.status, 200);
+  assert.equal(transactions.body.pagination.limit, 5);
+  assert.equal(Array.isArray(transactions.body.items), true);
+
+  const report = await agent.get('/api/admin/reports?period=year');
+  assert.equal(report.status, 200);
+  assert.equal(report.body.period.key, 'year');
+  assert.equal(Array.isArray(report.body.cashFlow), true);
+  assert.equal(JSON.stringify({ transactions: transactions.body, report: report.body }).includes('passwordHash'), false);
 
   const unknown = await agent.get('/api/admin/tidak-ada');
   assert.equal(unknown.status, 404);

@@ -4,8 +4,10 @@ export const METRIC_DETAIL_KEYS = Object.freeze([
   'total-transactions',
   'transaction-volume',
 ]);
+export const ADMIN_PAGE_VIEWS = Object.freeze(['overview', 'users', 'transactions', 'reports']);
 
 const metricDetailKeySet = new Set(METRIC_DETAIL_KEYS);
+const adminPageViewSet = new Set(ADMIN_PAGE_VIEWS);
 
 function overviewRoute() {
   return { view: 'overview' };
@@ -46,7 +48,7 @@ export function parseAdminRoute(hash) {
   }
 
   if (!fragment || fragment === 'overview') return overviewRoute();
-  if (fragment === 'users') return { view: 'users' };
+  if (adminPageViewSet.has(fragment)) return { view: fragment };
 
   const parts = fragment.split('/');
   if (parts.length === 2 && parts[0] === 'detail') {
@@ -63,7 +65,7 @@ export function parseAdminRoute(hash) {
  * unsupported route objects safely fall back to the overview.
  */
 export function adminRouteHash(route) {
-  if (route?.view === 'users') return '#users';
+  if (adminPageViewSet.has(route?.view)) return `#${route.view}`;
   if (route?.view === 'detail' && metricDetailKeySet.has(route.key)) {
     return `#detail/${route.key}`;
   }

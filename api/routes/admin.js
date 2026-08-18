@@ -9,6 +9,8 @@ const {
   buildAdminInsightDetail,
   buildAdminInsights,
 } = require('../services/admin-insights');
+const { buildAdminReport } = require('../services/admin-reports');
+const { buildAdminTransactionList } = require('../services/admin-transactions');
 const { buildAdminUserList } = require('../services/admin-users');
 
 const DUMMY_PASSWORD_HASH = '$2b$12$0XU8.j8mj9COULD6TI5O/OINMDcIfhNp/FNmefn5xdneALLrXT.3y';
@@ -163,6 +165,22 @@ function createAdminRouter(store, options = {}) {
       store.listTransactionsForAdmin(),
     ]);
     res.json(buildAdminUserList(users, transactions, req.query));
+  });
+
+  router.get('/transactions', async (req, res) => {
+    const [users, transactions] = await Promise.all([
+      store.listUsersForAdmin(),
+      store.listTransactionsForAdmin(),
+    ]);
+    res.json(buildAdminTransactionList(users, transactions, req.query));
+  });
+
+  router.get('/reports', async (req, res) => {
+    const [users, transactions] = await Promise.all([
+      store.listUsersForAdmin(),
+      store.listTransactionsForAdmin(),
+    ]);
+    res.json(buildAdminReport(users, transactions, req.query));
   });
 
   router.use((req, res) => res.status(404).json({ message: 'Endpoint admin tidak ditemukan.' }));
