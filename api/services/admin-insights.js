@@ -1,4 +1,12 @@
 const TIMEZONE = 'Asia/Jakarta';
+const ADMIN_INSIGHT_KEYS = Object.freeze([
+  'total-users',
+  'active-users',
+  'total-transactions',
+  'transaction-volume',
+]);
+const DEFAULT_DETAIL_LIMIT = 10;
+const MAX_DETAIL_LIMIT = 50;
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const MONTHS_LONG = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -9,6 +17,12 @@ const integerFormatter = new Intl.NumberFormat('id-ID', { maximumFractionDigits:
 const decimalFormatter = new Intl.NumberFormat('id-ID', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 1,
+});
+const dateFormatter = new Intl.DateTimeFormat('id-ID', {
+  timeZone: TIMEZONE,
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
 });
 
 function asDate(value, fallback) {
@@ -120,6 +134,13 @@ function userIdOf(transaction) {
 
 function formatInteger(value) {
   return integerFormatter.format(Number.isFinite(value) ? value : 0);
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return dateFormatter.format(date).replace(/\./g, '');
 }
 
 function formatCurrency(value) {
@@ -352,21 +373,25 @@ function buildAdminInsights(users, transactions, nowValue) {
   return {
     metrics: [
       {
+        key: 'total-users',
         label: 'Total pengguna', value: formatInteger(currentUsers.length),
         trend: formatTrend(currentUsers.length, usersBeforeMonth.length),
         note: 'vs. bulan lalu', icon: 'users', tone: 'green',
       },
       {
+        key: 'active-users',
         label: 'Pengguna aktif', value: formatInteger(currentActive),
         trend: formatTrend(currentActive, previousActive),
         note: `${decimalFormatter.format(activeShare)}% dari total`, icon: 'pulse', tone: 'blue',
       },
       {
+        key: 'total-transactions',
         label: 'Total transaksi', value: formatInteger(currentEntries.length),
         trend: formatTrend(currentEntries.length, previousEntries.length),
         note: 'bulan ini', icon: 'receipt', tone: 'purple',
       },
       {
+        key: 'transaction-volume',
         label: 'Volume transaksi', value: formatCurrency(currentVolume),
         trend: formatTrend(currentVolume, previousVolume),
         note: 'bulan ini', icon: 'wallet', tone: 'orange',
@@ -380,4 +405,284 @@ function buildAdminInsights(users, transactions, nowValue) {
   };
 }
 
-module.exports = { buildAdminInsights };
+function scalarQueryValue(value) {
+  if (Array.isArray(value)) return scalarQueryValue(value[0]);
+  return ['string', 'number'].includes(typeof value) ? String(value) : '';
+}
+
+function positiveInteger(value, fallback, maximum = Number.MAX_SAFE_INTEGER) {
+  const text = scalarQueryValue(value).trim();
+  if (!/^\d+$/.test(text)) return fallback;
+  const parsed = Number(text);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, maximum);
+}
+
+function paginate(items, query) {
+  const safeQuery = query && typeof query === 'object' ? query : {};
+  const requestedPage = positiveInteger(safeQuery.page, 1);
+  const limit = positiveInteger(safeQuery.limit, DEFAULT_DETAIL_LIMIT, MAX_DETAIL_LIMIT);
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const page = Math.min(requestedPage, totalPages);
+  const start = Math.min((page - 1) * limit, Number.MAX_SAFE_INTEGER);
+  return {
+    items: items.slice(start, start + limit),
+    pagination: {
+      page,
+      limit,
+      totalItems,
+      totalPages,
+      hasPreviousPage: page > 1,
+      hasNextPage: page < totalPages,
+    },
+  };
+}
+
+function safeSum(values) {
+  let total = 0;
+  for (const value of values) {
+    const next = total + numberValue(value);
+    total = Number.isFinite(next) ? next : Number.MAX_VALUE;
+  }
+  return total;
+}
+
+function percentage(part, total) {
+  if (!total) return 0;
+  const value = (part / total) * 100;
+  return Number.isFinite(value) ? Math.round(value * 10) / 10 : 0;
+}
+
+function userCreatedInstant(user) {
+  const value = user && (user.createdAt ?? user.created_at);
+  if (value == null || value === '') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function transactionType(transaction) {
+  return String(transaction && (transaction.tipe ?? transaction.type) || '').trim().toLowerCase() || 'lainnya';
+}
+
+function typeLabel(value) {
+  const labels = { operasi: 'Operasional', investasi: 'Investasi', pendanaan: 'Pendanaan' };
+  return labels[value] || `${value.charAt(0).toLocaleUpperCase('id-ID')}${value.slice(1)}`;
+}
+
+function directionValue(transaction) {
+  const direction = String(transaction && (transaction.arah ?? transaction.direction) || '').trim().toLowerCase();
+  return direction === 'masuk' || direction === 'keluar' ? direction : 'lainnya';
+}
+
+function directionLabel(value) {
+  return { masuk: 'Pemasukan', keluar: 'Pengeluaran', lainnya: 'Lainnya' }[value];
+}
+
+function periodUserItem(user, entries) {
+  const joinedAt = userCreatedInstant(user);
+  const orderedEntries = [...entries].sort((left, right) => right.date.localeCompare(left.date));
+  const lastActivity = orderedEntries[0]?.date || null;
+  const totalVolume = safeSum(entries.map(({ transaction }) => transaction.nominal ?? transaction.amount));
+  const status = entries.length ? 'active' : 'inactive';
+  return {
+    id: user.id ?? null,
+    name: String(user.name ?? '').trim() || 'Pengguna',
+    email: String(user.email ?? '').trim(),
+    onboardingDone: Boolean(user.onboardingDone ?? user.onboarding_done),
+    status,
+    statusLabel: status === 'active' ? 'Aktif' : 'Tidak aktif',
+    joinedAt: joinedAt ? joinedAt.toISOString() : null,
+    joinedAtLabel: formatDate(joinedAt),
+    transactionCount: entries.length,
+    totalVolume,
+    totalVolumeLabel: formatCurrency(totalVolume),
+    lastActivity,
+    lastActivityLabel: lastActivity
+      ? formatDate(new Date(`${lastActivity}T00:00:00.000+07:00`))
+      : 'Belum ada aktivitas pada periode ini',
+  };
+}
+
+function transactionItem(entry, user) {
+  const { transaction, date } = entry;
+  const type = transactionType(transaction);
+  const direction = directionValue(transaction);
+  const amount = numberValue(transaction.nominal ?? transaction.amount);
+  const category = String(transaction.kategori ?? transaction.category ?? '').trim() || 'Tanpa kategori';
+  const description = String(transaction.deskripsi ?? transaction.description ?? '').trim();
+  return {
+    id: transaction.id ?? null,
+    userId: userIdOf(transaction),
+    userName: user ? String(user.name ?? '').trim() || 'Pengguna' : 'Pengguna',
+    userEmail: user ? String(user.email ?? '').trim() : '',
+    date,
+    dateLabel: formatDate(new Date(`${date}T00:00:00.000+07:00`)),
+    type,
+    typeLabel: typeLabel(type),
+    category,
+    categoryLabel: category,
+    description,
+    direction,
+    directionLabel: directionLabel(direction),
+    amount,
+    amountLabel: formatCurrency(amount),
+  };
+}
+
+function breakdownBy(entries, valueOf, amountBased = false) {
+  const groups = new Map();
+  for (const entry of entries) {
+    const key = valueOf(entry.transaction);
+    const current = groups.get(key) || { key, count: 0, amount: 0 };
+    current.count += 1;
+    current.amount = safeSum([current.amount, entry.transaction.nominal ?? entry.transaction.amount]);
+    groups.set(key, current);
+  }
+  const total = amountBased
+    ? safeSum([...groups.values()].map((item) => item.amount))
+    : [...groups.values()].reduce((sum, item) => sum + item.count, 0);
+  return [...groups.values()]
+    .sort((left, right) => (amountBased ? right.amount - left.amount : right.count - left.count)
+      || left.key.localeCompare(right.key, 'id-ID'))
+    .map((item) => {
+      const value = amountBased ? item.amount : item.count;
+      const label = valueOf === directionValue ? directionLabel(item.key) : typeLabel(item.key);
+      return {
+        key: item.key,
+        label,
+        value,
+        valueLabel: amountBased ? formatCurrency(value) : formatInteger(value),
+        count: item.count,
+        percent: percentage(value, total),
+      };
+    });
+}
+
+function buildAdminInsightDetail(key, users, transactions, query = {}, nowValue) {
+  if (!ADMIN_INSIGHT_KEYS.includes(key)) return null;
+
+  const now = asDate(nowValue, new Date());
+  const overview = buildAdminInsights(users, transactions, now);
+  const period = overview.period;
+  const normalizedUsers = uniqueUsers(users);
+  const currentUsers = normalizedUsers.filter((user) => {
+    const created = instantDateKey(user.createdAt ?? user.created_at);
+    return !created || created <= period.end;
+  });
+  const currentEntries = realTransactions(transactions)
+    .filter((entry) => inRange(entry, period.start, period.end));
+  const userById = new Map(normalizedUsers
+    .filter((user) => user.id != null && user.id !== '')
+    .map((user) => [String(user.id), user]));
+  const entriesByUser = new Map();
+  for (const entry of currentEntries) {
+    const userId = userIdOf(entry.transaction);
+    if (!userId) continue;
+    if (!entriesByUser.has(userId)) entriesByUser.set(userId, []);
+    entriesByUser.get(userId).push(entry);
+  }
+
+  const currentVolume = safeSum(currentEntries
+    .map(({ transaction }) => transaction.nominal ?? transaction.amount));
+  const incomingEntries = currentEntries.filter(({ transaction }) => directionValue(transaction) === 'masuk');
+  const outgoingEntries = currentEntries.filter(({ transaction }) => directionValue(transaction) === 'keluar');
+  const incomingVolume = safeSum(incomingEntries
+    .map(({ transaction }) => transaction.nominal ?? transaction.amount));
+  const outgoingVolume = safeSum(outgoingEntries
+    .map(({ transaction }) => transaction.nominal ?? transaction.amount));
+  const activeIds = [...uniqueActiveUsers(currentEntries)];
+  const metric = overview.metrics.find((item) => item.key === key);
+
+  let title;
+  let description;
+  let itemType;
+  let allItems;
+  let highlights;
+  let breakdown;
+
+  if (key === 'total-users') {
+    title = 'Detail total pengguna';
+    description = 'Seluruh pengguna yang telah terdaftar hingga akhir periode laporan.';
+    itemType = 'users';
+    allItems = currentUsers.map((user) => periodUserItem(
+      user,
+      entriesByUser.get(user.id == null ? '' : String(user.id)) || [],
+    )).sort((left, right) => (Date.parse(right.joinedAt) || 0) - (Date.parse(left.joinedAt) || 0)
+      || left.name.localeCompare(right.name, 'id-ID')
+      || String(left.id ?? '').localeCompare(String(right.id ?? ''), 'id-ID'));
+    const joinedThisPeriod = currentUsers.filter((user) => {
+      const created = instantDateKey(user.createdAt ?? user.created_at);
+      return created && created >= period.start;
+    }).length;
+    const onboarded = currentUsers.filter((user) => Boolean(user.onboardingDone ?? user.onboarding_done)).length;
+    highlights = [
+      { label: 'Pengguna baru periode ini', value: joinedThisPeriod, valueLabel: formatInteger(joinedThisPeriod) },
+      { label: 'Onboarding selesai', value: onboarded, valueLabel: formatInteger(onboarded) },
+      { label: 'Tingkat penyelesaian onboarding', value: percentage(onboarded, currentUsers.length), valueLabel: `${decimalFormatter.format(percentage(onboarded, currentUsers.length))}%` },
+      { label: 'Pengguna aktif periode ini', value: activeIds.length, valueLabel: formatInteger(activeIds.length) },
+    ];
+    const notOnboarded = currentUsers.length - onboarded;
+    breakdown = [
+      { key: 'completed', label: 'Onboarding selesai', value: onboarded, valueLabel: formatInteger(onboarded), count: onboarded, percent: percentage(onboarded, currentUsers.length) },
+      { key: 'not-completed', label: 'Onboarding belum selesai', value: notOnboarded, valueLabel: formatInteger(notOnboarded), count: notOnboarded, percent: percentage(notOnboarded, currentUsers.length) },
+    ];
+  } else if (key === 'active-users') {
+    title = 'Detail pengguna aktif';
+    description = 'Pengguna yang mencatat transaksi nyata pada periode berjalan.';
+    itemType = 'users';
+    allItems = activeIds.map((id) => periodUserItem(
+      userById.get(id) || { id, name: 'Pengguna', email: '' },
+      entriesByUser.get(id) || [],
+    )).sort((left, right) => String(right.lastActivity || '').localeCompare(String(left.lastActivity || ''))
+      || right.transactionCount - left.transactionCount
+      || left.name.localeCompare(right.name, 'id-ID'));
+    const activeVolume = safeSum(allItems.map((item) => item.totalVolume));
+    highlights = [
+      { label: 'Porsi dari total pengguna', value: percentage(activeIds.length, currentUsers.length), valueLabel: `${decimalFormatter.format(percentage(activeIds.length, currentUsers.length))}%` },
+      { label: 'Transaksi pengguna aktif', value: currentEntries.length, valueLabel: formatInteger(currentEntries.length) },
+      { label: 'Rata-rata volume per pengguna', value: activeIds.length ? activeVolume / activeIds.length : 0, valueLabel: formatCurrency(activeIds.length ? activeVolume / activeIds.length : 0) },
+      { label: 'Rata-rata transaksi per pengguna', value: activeIds.length ? currentEntries.length / activeIds.length : 0, valueLabel: decimalFormatter.format(activeIds.length ? currentEntries.length / activeIds.length : 0) },
+    ];
+    breakdown = breakdownBy(currentEntries, directionValue);
+  } else {
+    title = key === 'total-transactions' ? 'Detail total transaksi' : 'Detail volume transaksi';
+    description = key === 'total-transactions'
+      ? 'Seluruh transaksi nyata yang tercatat pada periode berjalan.'
+      : 'Nilai akumulasi seluruh transaksi nyata pada periode berjalan.';
+    itemType = 'transactions';
+    allItems = currentEntries.map((entry) => transactionItem(
+      entry,
+      userById.get(userIdOf(entry.transaction)),
+    )).sort((left, right) => right.date.localeCompare(left.date)
+      || String(right.id ?? '').localeCompare(String(left.id ?? ''), 'id-ID'));
+    highlights = key === 'total-transactions' ? [
+      { label: 'Transaksi masuk', value: incomingEntries.length, valueLabel: formatInteger(incomingEntries.length) },
+      { label: 'Transaksi keluar', value: outgoingEntries.length, valueLabel: formatInteger(outgoingEntries.length) },
+      { label: 'Rata-rata nilai transaksi', value: currentEntries.length ? currentVolume / currentEntries.length : 0, valueLabel: formatCurrency(currentEntries.length ? currentVolume / currentEntries.length : 0) },
+      { label: 'Pengguna aktif', value: activeIds.length, valueLabel: formatInteger(activeIds.length) },
+    ] : [
+      { label: 'Volume masuk', value: incomingVolume, valueLabel: formatCurrency(incomingVolume) },
+      { label: 'Volume keluar', value: outgoingVolume, valueLabel: formatCurrency(outgoingVolume) },
+      { label: 'Rata-rata nilai transaksi', value: currentEntries.length ? currentVolume / currentEntries.length : 0, valueLabel: formatCurrency(currentEntries.length ? currentVolume / currentEntries.length : 0) },
+      { label: 'Transaksi terbesar', value: currentEntries.reduce((maximum, entry) => Math.max(maximum, numberValue(entry.transaction.nominal ?? entry.transaction.amount)), 0), valueLabel: formatCurrency(currentEntries.reduce((maximum, entry) => Math.max(maximum, numberValue(entry.transaction.nominal ?? entry.transaction.amount)), 0)) },
+    ];
+    breakdown = breakdownBy(currentEntries, transactionType, key === 'transaction-volume');
+  }
+
+  const paged = paginate(allItems, query);
+  return {
+    key,
+    title,
+    description,
+    metric,
+    period,
+    highlights,
+    breakdown,
+    itemType,
+    items: paged.items,
+    pagination: paged.pagination,
+  };
+}
+
+module.exports = { ADMIN_INSIGHT_KEYS, buildAdminInsightDetail, buildAdminInsights };

@@ -4,7 +4,11 @@ const {
   clearSessionCookie, createAdminSession, hashSessionToken,
   parseCookies, resolveAdminConfig, sessionCookie,
 } = require('../admin/auth');
-const { buildAdminInsights } = require('../services/admin-insights');
+const {
+  ADMIN_INSIGHT_KEYS,
+  buildAdminInsightDetail,
+  buildAdminInsights,
+} = require('../services/admin-insights');
 const { buildAdminUserList } = require('../services/admin-users');
 
 const DUMMY_PASSWORD_HASH = '$2b$12$0XU8.j8mj9COULD6TI5O/OINMDcIfhNp/FNmefn5xdneALLrXT.3y';
@@ -140,6 +144,17 @@ function createAdminRouter(store, options = {}) {
       store.listTransactionsForAdmin(),
     ]);
     res.json(buildAdminInsights(users, transactions));
+  });
+
+  router.get('/insights/:key', async (req, res) => {
+    if (!ADMIN_INSIGHT_KEYS.includes(req.params.key)) {
+      return res.status(404).json({ message: 'Endpoint admin tidak ditemukan.' });
+    }
+    const [users, transactions] = await Promise.all([
+      store.listUsersForAdmin(),
+      store.listTransactionsForAdmin(),
+    ]);
+    res.json(buildAdminInsightDetail(req.params.key, users, transactions, req.query));
   });
 
   router.get('/users', async (req, res) => {

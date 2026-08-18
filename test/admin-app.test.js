@@ -24,16 +24,25 @@ test('halaman admin tersedia pada /admin di aplikasi utama', async () => {
   assert.equal(page.status, 200);
   assert.match(page.text, /Cashly Admin/);
   assert.match(page.text, /id="loginForm"/);
+  assert.match(page.text, /id="metricDetailPage"/);
   assert.match(page.headers['cache-control'], /no-store/);
 
   const script = await request(app).get('/admin/src/main.js');
   assert.equal(script.status, 200);
   assert.match(script.text, /\/api\/admin/);
+  assert.match(script.text, /router\.mjs/);
+
+  const router = await request(app).get('/admin/src/router.mjs');
+  assert.equal(router.status, 200);
+  assert.match(router.text, /total-users/);
 });
 
 test('endpoint admin menolak akses anonim dan Bearer JWT pengguna', async () => {
   const anonymous = await request(app).get('/api/admin/insights');
   assert.equal(anonymous.status, 401);
+
+  const anonymousDetail = await request(app).get('/api/admin/insights/total-users');
+  assert.equal(anonymousDetail.status, 401);
 
   const registered = await request(app).post('/api/auth/register').send({
     name: 'User Biasa', email: 'user-biasa@test.id', password: 'passwordku',
@@ -70,6 +79,19 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
   const insights = await agent.get('/api/admin/insights');
   assert.equal(insights.status, 200);
   assert.equal(insights.body.metrics.length, 4);
+
+  for (const metric of insights.body.metrics) {
+    const detail = await agent.get(`/api/admin/insights/${metric.key}?limit=1`);
+    assert.equal(detail.status, 200);
+    assert.deepEqual(detail.body.metric, metric);
+    assert.deepEqual(detail.body.period, insights.body.period);
+    assert.equal(detail.body.pagination.limit, 1);
+    assert.equal(JSON.stringify(detail.body).includes('passwordHash'), false);
+  }
+
+  const unknownInsight = await agent.get('/api/admin/insights/tidak-ada');
+  assert.equal(unknownInsight.status, 404);
+  assert.equal(unknownInsight.body.message, 'Endpoint admin tidak ditemukan.');
 
   const users = await agent.get('/api/admin/users?limit=10');
   assert.equal(users.status, 200);

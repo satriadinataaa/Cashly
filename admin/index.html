@@ -67,19 +67,19 @@
 
         <div class="analytics-grid">
           <article class="card growth-card">
-            <div class="card-head"><div><h2>Pertumbuhan pengguna</h2><p>Pengguna baru dan aktif dalam 7 bulan terakhir</p></div><div class="legend"><span><i class="green"></i>Pengguna aktif</span><span><i class="mint"></i>Pengguna baru</span></div></div>
+            <div class="card-head"><div><h2>Pertumbuhan pengguna</h2><p>Pengguna baru dan aktif dalam 7 bulan terakhir</p></div><div class="growth-card-actions"><div class="legend"><span><i class="green"></i>Pengguna aktif</span><span><i class="mint"></i>Pengguna baru</span></div><button class="text-button" type="button" data-metric-key="total-users">Lihat detail <span data-icon="arrow"></span></button></div></div>
             <div class="chart-wrap"><div class="y-axis"><span>12k</span><span>9k</span><span>6k</span><span>3k</span><span>0</span></div><svg id="growthChart" role="img" aria-label="Grafik pertumbuhan pengguna"></svg></div>
           </article>
           <article class="card health-card">
-            <div class="card-head"><div><h2>Kesehatan cash flow</h2><p>Distribusi kondisi pengguna bulan ini</p></div><button class="dots">•••</button></div>
+            <div class="card-head"><div><h2>Kesehatan cash flow</h2><p>Distribusi kondisi pengguna bulan ini</p></div><button class="text-button" type="button" data-metric-key="active-users">Lihat detail <span data-icon="arrow"></span></button></div>
             <div class="health-content"><div class="donut" id="healthDonut"><div><strong>0</strong><span>Pengguna</span></div></div><div class="health-legend" id="healthLegend"></div></div>
             <div class="insight-note"><span data-icon="spark"></span><p><strong>Insight</strong><br>Memuat insight dari database...</p></div>
           </article>
         </div>
 
         <div class="bottom-grid">
-          <article class="card categories-card"><div class="card-head"><div><h2>Kategori transaksi teratas</h2><p>Berdasarkan volume transaksi bulan ini</p></div><button class="text-button">Lihat semua <span data-icon="arrow"></span></button></div><div id="categories"></div></article>
-          <article class="card activity-card"><div class="card-head"><div><h2>Aktivitas terbaru</h2><p>Aktivitas penting di platform</p></div><button class="dots">•••</button></div><div id="activities"></div></article>
+          <article class="card categories-card"><div class="card-head"><div><h2>Kategori transaksi teratas</h2><p>Berdasarkan volume transaksi bulan ini</p></div><button class="text-button" type="button" data-metric-key="transaction-volume">Lihat semua <span data-icon="arrow"></span></button></div><div id="categories"></div></article>
+          <article class="card activity-card"><div class="card-head"><div><h2>Aktivitas terbaru</h2><p>Aktivitas penting di platform</p></div><button class="text-button" type="button" data-metric-key="total-transactions">Lihat semua <span data-icon="arrow"></span></button></div><div id="activities"></div></article>
         </div>
       </section>
 
@@ -118,6 +118,100 @@
           <div class="users-footer">
             <span id="usersRange">0 pengguna</span>
             <div class="pagination"><button id="usersPrev" aria-label="Halaman sebelumnya">←</button><span id="usersPageLabel">Halaman 1 dari 1</span><button id="usersNext" aria-label="Halaman berikutnya">→</button></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="content admin-page metric-detail-page hidden" id="metricDetailPage" aria-labelledby="detailTitle">
+        <nav class="detail-breadcrumb" aria-label="Navigasi halaman detail">
+          <button class="detail-back" id="detailBack" type="button">
+            <span aria-hidden="true">&larr;</span>
+            <span>Overview</span>
+          </button>
+          <span class="detail-breadcrumb-separator" aria-hidden="true">/</span>
+          <span>Detail insight</span>
+        </nav>
+
+        <div class="heading detail-heading">
+          <div>
+            <p class="eyebrow">DETAIL INSIGHT</p>
+            <h1 id="detailTitle">Memuat detail metrik...</h1>
+            <p id="detailDescription">Data insight akan ditampilkan dari database Cashly.</p>
+          </div>
+          <button class="refresh-button" id="refreshDetail" type="button">
+            <span data-icon="refresh"></span>
+            Perbarui data
+          </button>
+        </div>
+
+        <article class="card detail-metric-hero" aria-live="polite">
+          <div class="detail-metric-main">
+            <span class="detail-metric-icon green" id="detailMetricIcon" data-icon="chart"></span>
+            <div>
+              <p id="detailMetricLabel">Metrik</p>
+              <strong id="detailMetricValue">&mdash;</strong>
+            </div>
+          </div>
+          <div class="detail-metric-context">
+            <div class="detail-trend-row">
+              <span class="detail-metric-trend" id="detailMetricTrend">Memuat perubahan...</span>
+              <span class="detail-period" id="detailPeriod">Periode berjalan</span>
+            </div>
+            <p id="detailMetricNote">Membandingkan performa dengan periode sebelumnya.</p>
+          </div>
+        </article>
+
+        <section class="detail-section" aria-labelledby="detailHighlightsTitle">
+          <div class="detail-section-head">
+            <div>
+              <h2 id="detailHighlightsTitle">Sorotan utama</h2>
+              <p>Ringkasan indikator yang membantu membaca metrik ini.</p>
+            </div>
+          </div>
+          <div class="detail-highlights" id="detailHighlights" aria-live="polite">
+            <article class="detail-highlight detail-placeholder" aria-hidden="true"><span></span><strong></strong><small></small></article>
+            <article class="detail-highlight detail-placeholder" aria-hidden="true"><span></span><strong></strong><small></small></article>
+            <article class="detail-highlight detail-placeholder" aria-hidden="true"><span></span><strong></strong><small></small></article>
+            <article class="detail-highlight detail-placeholder" aria-hidden="true"><span></span><strong></strong><small></small></article>
+          </div>
+        </section>
+
+        <article class="card detail-breakdown-card">
+          <div class="detail-section-head">
+            <div>
+              <h2>Komposisi data</h2>
+              <p>Distribusi metrik berdasarkan kelompok data terkait.</p>
+            </div>
+          </div>
+          <div class="detail-breakdown" id="detailBreakdown" aria-live="polite">
+            <div class="detail-loading" role="status"><span class="detail-loading-spinner" aria-hidden="true"></span>Memuat komposisi data...</div>
+          </div>
+        </article>
+
+        <article class="card detail-list-card">
+          <div class="detail-list-head">
+            <div>
+              <h2 id="detailListTitle">Rincian data</h2>
+              <p id="detailResultLabel" aria-live="polite">Memuat data dari database...</p>
+            </div>
+          </div>
+          <div class="detail-table-wrap">
+            <table class="detail-table">
+              <thead id="detailTableHead">
+                <tr><th>Data</th><th>Nilai</th><th>Status</th></tr>
+              </thead>
+              <tbody id="detailTableBody" aria-live="polite">
+                <tr><td colspan="3"><div class="detail-loading" role="status"><span class="detail-loading-spinner" aria-hidden="true"></span>Memuat rincian data...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="detail-footer">
+            <span id="detailRange">0 data</span>
+            <div class="pagination" aria-label="Navigasi halaman rincian">
+              <button id="detailPrev" type="button" aria-label="Halaman sebelumnya">&larr;</button>
+              <span id="detailPageLabel">Halaman 1 dari 1</span>
+              <button id="detailNext" type="button" aria-label="Halaman berikutnya">&rarr;</button>
+            </div>
           </div>
         </article>
       </section>

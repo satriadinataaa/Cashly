@@ -1,3 +1,5 @@
+import { adminRouteHash, parseAdminRoute } from './router.mjs';
+
 async function request(path, options = {}) {
   const response = await fetch(`/api/admin${path}`, {
     credentials: 'same-origin',
@@ -77,7 +79,7 @@ function escapeHtml(value) {
 }
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
 
-document.querySelector('#metricGrid').innerHTML = metrics.map(m => `<article class="metric-card"><div class="metric-icon ${m.tone}">${icon(m.icon)}</div><p>${escapeHtml(m.label)}</p><strong>${escapeHtml(m.value)}</strong><div><span>${m.trend.startsWith('-') ? '↘' : '↗'} ${escapeHtml(m.trend)}</span><small>${escapeHtml(m.note)}</small></div></article>`).join('');
+document.querySelector('#metricGrid').innerHTML = metrics.map(m => `<a class="metric-card metric-link" href="${adminRouteHash({ view: 'detail', key: m.key })}" data-metric-key="${escapeHtml(m.key)}" aria-label="Buka detail ${escapeHtml(m.label)}"><div class="metric-icon ${m.tone}">${icon(m.icon)}</div><p>${escapeHtml(m.label)}</p><strong>${escapeHtml(m.value)}</strong><div><span>${m.trend.startsWith('-') ? '↘' : '↗'} ${escapeHtml(m.trend)}</span><small>${escapeHtml(m.note)}</small></div></a>`).join('');
 
 function makePath(values, width, height, max) { return values.map((v, i) => `${i ? 'L' : 'M'} ${(i * width / (values.length - 1)).toFixed(1)} ${(height - v / max * height).toFixed(1)}`).join(' '); }
 const chart = document.querySelector('#growthChart');
@@ -108,6 +110,10 @@ document.querySelector('#dateButton').addEventListener('click', () => toast(`Per
 document.querySelector('#menuBtn').addEventListener('click', () => document.querySelector('#sidebar').classList.toggle('open'));
 
 const userState = { page: 1, limit: 10, q: '', status: 'all', loaded: false };
+const detailState = {
+  key: null, page: 1, limit: 10, requestId: 0,
+  hasPreviousPage: false, hasNextPage: false,
+};
 
 function renderUserSummary(summary) {
   document.querySelector('#usersTotal').textContent = summary.total.toLocaleString('id-ID');
@@ -159,22 +165,140 @@ async function loadUsers() {
   }
 }
 
+function renderDetailHighlights(items) {
+  const container = document.querySelector('#detailHighlights');
+  container.innerHTML = items.length ? items.map(item => `<article class="detail-highlight ${escapeHtml(item.tone || '')}"><small>${escapeHtml(item.label)}</small><strong>${escapeHtml(item.valueLabel ?? item.value)}</strong><p>${escapeHtml(item.note || '')}</p></article>`).join('') : '<p class="detail-empty">Belum ada ringkasan tambahan.</p>';
+}
+
+function renderDetailBreakdown(items) {
+  const container = document.querySelector('#detailBreakdown');
+  container.innerHTML = items.length ? items.map(item => {
+    const percent = Math.max(0, Math.min(100, Number(item.percent) || 0));
+    return `<div class="detail-breakdown-row"><div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.valueLabel ?? item.value)}</strong></div><div class="detail-progress"><i style="width:${percent}%"></i></div><small>${percent.toLocaleString('id-ID')}% dari total</small></div>`;
+  }).join('') : '<p class="detail-empty">Belum ada distribusi data pada periode ini.</p>';
+}
+
+function renderDetailUsers(items) {
+  document.querySelector('#detailTableHead').innerHTML = '<tr><th>Pengguna</th><th>Status</th><th>Transaksi</th><th>Volume</th><th>Aktivitas terakhir</th><th>Bergabung</th></tr>';
+  document.querySelector('#detailTableBody').innerHTML = items.length ? items.map(user => {
+    const initials = String(user.name || 'P').split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+    const status = user.status || (user.transactionCount ? 'active' : 'inactive');
+    const statusLabel = user.statusLabel || (status === 'active' ? 'Aktif periode ini' : 'Tidak aktif periode ini');
+    return `<tr><td><div class="table-user"><span>${escapeHtml(initials)}</span><div><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.email)} · ${user.onboardingDone ? 'Onboarding selesai' : 'Onboarding belum selesai'}</small></div></div></td><td><span class="user-status ${escapeHtml(status)}"><i></i>${escapeHtml(statusLabel)}</span></td><td><strong class="table-number">${Number(user.transactionCount || 0).toLocaleString('id-ID')}</strong></td><td><strong class="table-number">${escapeHtml(user.totalVolumeLabel || 'Rp 0')}</strong></td><td><span class="table-date">${escapeHtml(user.lastActivityLabel || 'Belum ada aktivitas')}</span></td><td><span class="table-date">${escapeHtml(user.joinedAtLabel || '—')}</span></td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="detail-loading">Belum ada pengguna pada detail ini.</td></tr>';
+}
+
+function renderDetailTransactions(items) {
+  document.querySelector('#detailTableHead').innerHTML = '<tr><th>Transaksi</th><th>Pengguna</th><th>Tipe</th><th>Arah</th><th>Nominal</th><th>Tanggal</th></tr>';
+  document.querySelector('#detailTableBody').innerHTML = items.length ? items.map(transaction => `<tr><td><div class="detail-transaction"><span class="summary-icon ${transaction.direction === 'masuk' ? 'green' : 'orange'}">${icon(transaction.direction === 'masuk' ? 'wallet' : 'receipt')}</span><div><strong>${escapeHtml(transaction.category)}</strong><small>${escapeHtml(transaction.description || 'Tanpa catatan')}</small></div></div></td><td><div class="detail-owner"><strong>${escapeHtml(transaction.userName || 'Pengguna')}</strong><small>${escapeHtml(transaction.userEmail || '—')}</small></div></td><td><span class="detail-type">${escapeHtml(transaction.typeLabel || transaction.type || '—')}</span></td><td><span class="detail-direction ${escapeHtml(transaction.direction || '')}">${escapeHtml(transaction.directionLabel || '—')}</span></td><td><strong class="detail-amount ${escapeHtml(transaction.direction || '')}">${escapeHtml(transaction.amountLabel || 'Rp 0')}</strong></td><td><span class="table-date">${escapeHtml(transaction.dateLabel || transaction.date || '—')}</span></td></tr>`).join('') : '<tr><td colspan="6" class="detail-loading">Belum ada transaksi pada periode ini.</td></tr>';
+}
+
+function renderMetricDetail(data) {
+  const metric = data.metric;
+  document.querySelector('#detailTitle').textContent = data.title;
+  document.querySelector('#detailDescription').textContent = data.description;
+  const metricIcon = document.querySelector('#detailMetricIcon');
+  metricIcon.className = `detail-metric-icon ${metric.tone}`;
+  metricIcon.innerHTML = icon(metric.icon);
+  document.querySelector('#detailMetricLabel').textContent = metric.label;
+  document.querySelector('#detailMetricValue').textContent = metric.value;
+  const trend = document.querySelector('#detailMetricTrend');
+  trend.className = metric.trend.startsWith('-') ? 'down' : 'up';
+  trend.textContent = `${metric.trend.startsWith('-') ? '↘' : '↗'} ${metric.trend}`;
+  document.querySelector('#detailMetricNote').textContent = metric.note;
+  document.querySelector('#detailPeriod').textContent = data.period.label;
+  renderDetailHighlights(data.highlights || []);
+  renderDetailBreakdown(data.breakdown || []);
+  document.querySelector('#detailListTitle').textContent = data.itemType === 'users' ? 'Pengguna terkait' : 'Transaksi terkait';
+  if (data.itemType === 'users') renderDetailUsers(data.items || []);
+  else renderDetailTransactions(data.items || []);
+
+  const { page, limit, totalItems, totalPages, hasPreviousPage, hasNextPage } = data.pagination;
+  const first = totalItems ? (page - 1) * limit + 1 : 0;
+  const last = Math.min(page * limit, totalItems);
+  document.querySelector('#detailResultLabel').textContent = `${totalItems.toLocaleString('id-ID')} data ditemukan`;
+  document.querySelector('#detailRange').textContent = totalItems ? `Menampilkan ${first}–${last} dari ${totalItems.toLocaleString('id-ID')}` : '0 data';
+  document.querySelector('#detailPageLabel').textContent = `Halaman ${page} dari ${totalPages}`;
+  document.querySelector('#detailPrev').disabled = !hasPreviousPage;
+  document.querySelector('#detailNext').disabled = !hasNextPage;
+  detailState.page = page;
+  detailState.hasPreviousPage = hasPreviousPage;
+  detailState.hasNextPage = hasNextPage;
+}
+
+async function loadMetricDetail(key) {
+  const requestId = ++detailState.requestId;
+  document.querySelector('#detailTableBody').innerHTML = '<tr><td colspan="6" class="detail-loading">Memuat detail dari database...</td></tr>';
+  const params = new URLSearchParams({ page: detailState.page, limit: detailState.limit });
+  try {
+    const data = await request(`/insights/${encodeURIComponent(key)}?${params}`);
+    if (requestId !== detailState.requestId || detailState.key !== key) return;
+    renderMetricDetail(data);
+  } catch (error) {
+    if (requestId !== detailState.requestId) return;
+    if (error.status === 401) return window.location.reload();
+    document.querySelector('#detailTableBody').innerHTML = `<tr><td colspan="6" class="detail-loading error">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+function setAdminRoute(route, { replace = false } = {}) {
+  const hash = adminRouteHash(route);
+  if (window.location.hash === hash) return;
+  window.history[replace ? 'replaceState' : 'pushState']({}, '', hash);
+}
+
+function openAdminRoute(route, { updateHistory = true, replace = false } = {}) {
+  const view = route.view;
+  const isDetail = view === 'detail';
+  document.querySelector('#dashboard').classList.toggle('hidden', view !== 'overview');
+  document.querySelector('#usersPage').classList.toggle('hidden', view !== 'users');
+  document.querySelector('#metricDetailPage').classList.toggle('hidden', !isDetail);
+  document.querySelectorAll('.nav-link').forEach(link => link.classList.toggle('active', link.dataset.view === (isDetail ? 'overview' : view)));
+  document.querySelector('#sidebar').classList.remove('open');
+  if (updateHistory) setAdminRoute(route, { replace });
+  if (view === 'users' && !userState.loaded) loadUsers();
+  if (isDetail) {
+    if (detailState.key !== route.key) detailState.page = 1;
+    detailState.key = route.key;
+    const metric = metrics.find(item => item.key === route.key);
+    if (metric) {
+      document.querySelector('#detailTitle').textContent = `Detail ${metric.label}`;
+      document.querySelector('#detailDescription').textContent = 'Memuat data terbaru dari database...';
+    }
+    loadMetricDetail(route.key);
+  }
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
 function openAdminView(view) {
   if (!['overview', 'users'].includes(view)) {
     toast(`${document.querySelector(`[data-view="${view}"]`)?.textContent.trim() || 'Fitur'} segera tersedia`);
     return;
   }
-  document.querySelector('#dashboard').classList.toggle('hidden', view !== 'overview');
-  document.querySelector('#usersPage').classList.toggle('hidden', view !== 'users');
-  document.querySelectorAll('.nav-link').forEach(link => link.classList.toggle('active', link.dataset.view === view));
-  document.querySelector('#sidebar').classList.remove('open');
-  window.location.hash = view === 'overview' ? 'overview' : 'users';
-  if (view === 'users' && !userState.loaded) loadUsers();
+  openAdminRoute({ view });
+}
+
+function syncAdminRoute() {
+  const route = parseAdminRoute(window.location.hash);
+  if (route.view === 'unavailable') {
+    const label = document.querySelector(`[data-view="${route.target}"]`)?.textContent.trim();
+    if (label) toast(`${label} segera tersedia`);
+    openAdminRoute({ view: 'overview' }, { updateHistory: false });
+    setAdminRoute({ view: 'overview' }, { replace: true });
+    return;
+  }
+  openAdminRoute(route, { updateHistory: false });
+  if (!window.location.hash) setAdminRoute(route, { replace: true });
 }
 
 document.querySelectorAll('.nav-link').forEach(link => link.addEventListener('click', event => {
   event.preventDefault();
   openAdminView(link.dataset.view);
+}));
+document.querySelectorAll('[data-metric-key]').forEach(control => control.addEventListener('click', event => {
+  if (control.tagName === 'A' && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
+  event.preventDefault();
+  openAdminRoute({ view: 'detail', key: control.dataset.metricKey });
 }));
 let userSearchTimer;
 document.querySelector('#userSearch').addEventListener('input', event => {
@@ -189,7 +313,22 @@ document.querySelector('#userStatus').addEventListener('change', event => {
 document.querySelector('#usersPrev').addEventListener('click', () => { if (userState.page > 1) { userState.page -= 1; loadUsers(); } });
 document.querySelector('#usersNext').addEventListener('click', () => { userState.page += 1; loadUsers(); });
 document.querySelector('#refreshUsers').addEventListener('click', () => loadUsers());
-if (window.location.hash === '#users') openAdminView('users');
+document.querySelector('#detailBack').addEventListener('click', () => openAdminRoute({ view: 'overview' }));
+document.querySelector('#refreshDetail').addEventListener('click', () => {
+  if (detailState.key) loadMetricDetail(detailState.key);
+});
+document.querySelector('#detailPrev').addEventListener('click', () => {
+  if (!detailState.hasPreviousPage || !detailState.key) return;
+  detailState.page -= 1;
+  loadMetricDetail(detailState.key);
+});
+document.querySelector('#detailNext').addEventListener('click', () => {
+  if (!detailState.hasNextPage || !detailState.key) return;
+  detailState.page += 1;
+  loadMetricDetail(detailState.key);
+});
+window.addEventListener('hashchange', syncAdminRoute);
+syncAdminRoute();
 document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.querySelector('#searchInput').focus(); } });
 document.querySelector('#logoutBtn').addEventListener('click', async () => {
   await request('/auth/logout', { method: 'POST' }).catch(() => null);
