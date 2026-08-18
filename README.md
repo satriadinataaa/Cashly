@@ -29,6 +29,23 @@ npm start
 
 Buka `http://localhost:3000`. Setiap akun baru dimulai dengan arus kas kosong dan seluruh transaksi hanya dapat diakses oleh pemilik akun tersebut.
 
+## Dashboard admin
+
+Dashboard admin menjadi bagian dari aplikasi yang sama dan tersedia di
+`http://localhost:3000/admin`. Autentikasi admin memakai cookie sesi khusus dan secret
+yang berbeda dari JWT pengguna.
+
+Untuk development, kredensial bawaan adalah `admin@cashly.id` dengan password
+`CashlyAdmin2026!`. Untuk production, buat hash password terlebih dahulu:
+
+```bash
+npm run admin:hash-password -- "password-admin-minimal-12-karakter"
+```
+
+Kemudian isi `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD_HASH`, dan
+`ADMIN_SESSION_SECRET` pada environment. Production tidak dapat dijalankan tanpa
+password hash dan secret admin tersebut.
+
 ## API aplikasi mobile
 
 Backend modular berada di folder `api/` dan tersedia melalui base URL `/api/v1`.

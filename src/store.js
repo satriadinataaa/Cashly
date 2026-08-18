@@ -80,6 +80,24 @@ function createStore(pool) {
       return mapUser(result.rows[0]);
     },
 
+    async listUsersForAdmin() {
+      const result = await pool.query(
+        'SELECT id, name, email, onboarding_done, created_at FROM users ORDER BY created_at DESC',
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        onboardingDone: row.onboarding_done,
+        createdAt: new Date(row.created_at).toISOString(),
+      }));
+    },
+
+    async listTransactionsForAdmin() {
+      const result = await pool.query('SELECT * FROM transactions ORDER BY tanggal DESC, created_at DESC');
+      return result.rows.map(mapTransaction);
+    },
+
     async createPasswordResetToken(token) {
       await pool.query(
         `UPDATE password_reset_tokens SET used_at = now()

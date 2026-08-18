@@ -1,18 +1,10 @@
-# Cashly Admin
+# Cashly Admin UI
 
-Dashboard admin mandiri untuk memantau insight produk Cashly.
+Frontend admin yang disajikan oleh aplikasi utama pada route `/admin`.
 
-## Menjalankan
+- Halaman: `/admin`
+- Autentikasi: `/api/admin/auth/login`
+- Sesi: `/api/admin/session`
+- Insight: `/api/admin/insights`
 
-```bash
-npm install
-npm run dev
-```
-
-Build produksi:
-
-```bash
-npm run build
-```
-
-Saat ini data dashboard berada di `src/data.js` sebagai data demo terpusat. Ganti import tersebut dengan client API admin ketika endpoint agregasi platform sudah tersedia.
+Folder ini bukan aplikasi Node.js terpisah. Jalankan server dari root repository dengan `npm run dev`.
