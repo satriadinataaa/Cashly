@@ -3,8 +3,6 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const { newDb } = require('pg-mem');
 
-process.env.ADMIN_SESSION_SECRET = 'admin-test-secret-yang-terpisah-dari-jwt';
-
 const { createApp } = require('../src/app');
 const { migrate } = require('../src/database');
 const { createStore } = require('../src/store');

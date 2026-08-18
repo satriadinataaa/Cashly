@@ -1,28 +1,30 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createAdminAuth, resolveAdminConfig } = require('../api/admin/auth');
+const {
+  clearSessionCookie, createAdminSession, hashSessionToken,
+  resolveAdminConfig, sessionCookie,
+} = require('../api/admin/auth');
 
-test('production mewajibkan secret sesi admin terpisah', () => {
-  assert.throws(
-    () => resolveAdminConfig({ NODE_ENV: 'production' }),
-    /ADMIN_SESSION_SECRET/,
-  );
-  assert.doesNotThrow(() => resolveAdminConfig({
-    NODE_ENV: 'production', ADMIN_SESSION_SECRET: 'secret-admin-production',
-  }));
+test('production tidak membutuhkan session secret dari environment', () => {
+  assert.deepEqual(resolveAdminConfig({ NODE_ENV: 'production' }), { secureCookie: true });
+  assert.deepEqual(resolveAdminConfig({}), { secureCookie: false });
 });
 
-test('sesi admin bertanda tangan dan memiliki masa kedaluwarsa', () => {
-  let currentTime = Date.parse('2026-08-18T00:00:00Z');
-  const auth = createAdminAuth({
-    sessionSecret: 'secret-admin-test', secureCookie: false,
-  }, () => currentTime);
-  const token = auth.issueSession({
-    id: 'admin-id', username: 'admin', name: 'Admin Test', role: 'super_admin',
-  });
-  assert.equal(auth.verifySession(token).role, 'super_admin');
-  assert.equal(auth.verifySession(token).username, 'admin');
-  assert.equal(auth.verifySession(`${token}rusak`), null);
-  currentTime += (8 * 60 * 60 + 1) * 1000;
-  assert.equal(auth.verifySession(token), null);
+test('sesi admin memakai token acak dan hanya hash-nya yang disimpan', () => {
+  const now = Date.parse('2026-08-18T00:00:00Z');
+  const first = createAdminSession('admin-id', () => now);
+  const second = createAdminSession('admin-id', () => now);
+
+  assert.notEqual(first.token, second.token);
+  assert.equal(first.record.adminId, 'admin-id');
+  assert.equal(first.record.tokenHash, hashSessionToken(first.token));
+  assert.notEqual(first.record.tokenHash, first.token);
+  assert.equal(first.record.createdAt, '2026-08-18T00:00:00.000Z');
+  assert.equal(first.record.expiresAt, '2026-08-18T08:00:00.000Z');
+});
+
+test('cookie sesi tetap terisolasi pada API admin', () => {
+  assert.match(sessionCookie('token', true), /HttpOnly; SameSite=Strict; Path=\/api\/admin/);
+  assert.match(sessionCookie('token', true), /; Secure/);
+  assert.match(clearSessionCookie(false), /Max-Age=0/);
 });

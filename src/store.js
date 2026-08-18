@@ -1,3 +1,5 @@
+const crypto = require('node:crypto');
+
 function mapUser(row) {
   if (!row) return null;
   return {
@@ -23,6 +25,33 @@ function mapAdminUser(row) {
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
     lastLoginAt: toIso(row.last_login_at),
+  };
+}
+
+function mapSafeAdminUser(row) {
+  if (!row) return null;
+  const toIso = value => (value == null ? null : new Date(value).toISOString());
+  return {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    role: row.role,
+    active: row.active === true,
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+    lastLoginAt: toIso(row.last_login_at),
+  };
+}
+
+function mapAdminSession(row) {
+  if (!row) return null;
+  const toIso = value => (value == null ? null : new Date(value).toISOString());
+  return {
+    id: row.id,
+    adminId: row.admin_user_id,
+    expiresAt: toIso(row.expires_at),
+    createdAt: toIso(row.created_at),
+    lastSeenAt: toIso(row.last_seen_at),
   };
 }
 
@@ -103,6 +132,56 @@ function createStore(pool) {
         [id, lastLoginAt],
       );
       return mapAdminUser(result.rows[0]);
+    },
+
+    async createAdminSession(session) {
+      const result = await pool.query(
+        `INSERT INTO admin_sessions
+          (id, admin_user_id, token_hash, expires_at, created_at, last_seen_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, admin_user_id, expires_at, created_at, last_seen_at`,
+        [
+          session.id || crypto.randomUUID(),
+          session.adminId,
+          session.tokenHash,
+          session.expiresAt,
+          session.createdAt ?? new Date(),
+          session.lastSeenAt ?? null,
+        ],
+      );
+      return mapAdminSession(result.rows[0]);
+    },
+
+    async findAdminBySessionTokenHash(tokenHash) {
+      const result = await pool.query(
+        `SELECT admin.id, admin.username, admin.name, admin.role,
+                admin.active, admin.created_at, admin.updated_at,
+                admin.last_login_at
+         FROM admin_sessions AS session
+         JOIN admin_users AS admin ON admin.id = session.admin_user_id
+         WHERE session.token_hash = $1
+           AND session.expires_at > now()
+           AND admin.active = true
+         LIMIT 1`,
+        [tokenHash],
+      );
+      return mapSafeAdminUser(result.rows[0]);
+    },
+
+    async deleteAdminSession(tokenHash) {
+      const result = await pool.query(
+        'DELETE FROM admin_sessions WHERE token_hash = $1',
+        [tokenHash],
+      );
+      return result.rowCount > 0;
+    },
+
+    async deleteExpiredAdminSessions(expiredAt = new Date()) {
+      const result = await pool.query(
+        'DELETE FROM admin_sessions WHERE expires_at <= $1',
+        [expiredAt],
+      );
+      return result.rowCount;
     },
 
     async findUserByEmail(email) {
@@ -278,4 +357,11 @@ function createStore(pool) {
   };
 }
 
-module.exports = { createStore, mapUser, mapAdminUser, mapTransaction };
+module.exports = {
+  createStore,
+  mapUser,
+  mapAdminUser,
+  mapSafeAdminUser,
+  mapAdminSession,
+  mapTransaction,
+};

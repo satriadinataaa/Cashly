@@ -1,6 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { createAdminAuth, parseCookies, resolveAdminConfig } = require('../admin/auth');
+const {
+  clearSessionCookie, createAdminSession, hashSessionToken,
+  parseCookies, resolveAdminConfig, sessionCookie,
+} = require('../admin/auth');
 const { buildAdminInsights } = require('../services/admin-insights');
 const { buildAdminUserList } = require('../services/admin-users');
 
@@ -40,7 +43,6 @@ function createLoginLimiter(now = () => Date.now()) {
 function createAdminRouter(store, options = {}) {
   const router = express.Router();
   const config = options.config || resolveAdminConfig(options.env);
-  const auth = createAdminAuth(config, options.now);
   const limiter = createLoginLimiter(options.now);
 
   router.use((req, res, next) => {
@@ -66,21 +68,25 @@ function createAdminRouter(store, options = {}) {
     }
     limiter.clear(limiterKey);
     const loggedInAdmin = await store.updateAdminLastLogin(admin.id) || admin;
-    res.set('Set-Cookie', auth.sessionCookie(auth.issueSession(loggedInAdmin)));
+    const session = createAdminSession(loggedInAdmin.id, options.now);
+    await store.createAdminSession(session.record);
+    res.set('Set-Cookie', sessionCookie(session.token, config.secureCookie));
     res.json({ user: publicAdmin(loggedInAdmin) });
   });
 
-  router.post('/auth/logout', (req, res) => {
+  router.post('/auth/logout', async (req, res) => {
     if (!requestOriginIsValid(req)) return res.status(403).json({ message: 'Origin permintaan tidak valid.' });
-    res.set('Set-Cookie', auth.clearCookie());
+    const token = parseCookies(req.headers.cookie).cashly_admin_session;
+    if (token) await store.deleteAdminSession(hashSessionToken(token));
+    res.set('Set-Cookie', clearSessionCookie(config.secureCookie));
     res.json({ message: 'Sesi admin telah berakhir.' });
   });
 
   router.use(async (req, res, next) => {
     const cookies = parseCookies(req.headers.cookie);
-    const session = auth.verifySession(cookies.cashly_admin_session);
-    if (!session) return res.status(401).json({ message: 'Autentikasi admin diperlukan.' });
-    const admin = await store.findAdminById(session.sub);
+    const token = cookies.cashly_admin_session;
+    if (!token) return res.status(401).json({ message: 'Autentikasi admin diperlukan.' });
+    const admin = await store.findAdminBySessionTokenHash(hashSessionToken(token));
     if (!admin || !admin.active) return res.status(401).json({ message: 'Autentikasi admin diperlukan.' });
     req.admin = admin;
     next();

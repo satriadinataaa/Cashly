@@ -54,6 +54,15 @@ CREATE TABLE IF NOT EXISTS admin_users (
   last_login_at timestamptz
 );
 
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  id uuid PRIMARY KEY,
+  admin_user_id uuid NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  token_hash char(64) NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz
+);
+
 CREATE INDEX IF NOT EXISTS transactions_user_date_idx
   ON transactions (user_id, tanggal DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS transactions_user_type_idx ON transactions (user_id, tipe);
@@ -62,6 +71,10 @@ CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_toke
 CREATE INDEX IF NOT EXISTS password_reset_tokens_expiry_idx ON password_reset_tokens (expires_at);
 CREATE UNIQUE INDEX IF NOT EXISTS admin_users_username_lower_unique
   ON admin_users (LOWER(username));
+CREATE INDEX IF NOT EXISTS admin_sessions_admin_user_idx
+  ON admin_sessions (admin_user_id);
+CREATE INDEX IF NOT EXISTS admin_sessions_expiry_idx
+  ON admin_sessions (expires_at);
 `;
 
 function createPool(config = {}) {

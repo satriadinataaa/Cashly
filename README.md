@@ -45,8 +45,8 @@ npm run admin:set-password -- admin "password-admin-baru"
 
 Nilai akun awal dapat diatur melalui `ADMIN_DEFAULT_USERNAME`,
 `ADMIN_DEFAULT_PASSWORD`, dan `ADMIN_DEFAULT_NAME` sebelum migrasi pertama.
-Production tetap wajib memiliki `ADMIN_SESSION_SECRET` yang berbeda dari
-`JWT_SECRET` pengguna.
+Sesi admin disimpan sebagai hash token pada tabel `admin_sessions`, sehingga tidak
+memerlukan `ADMIN_SESSION_SECRET` di environment.
 
 ## API aplikasi mobile
 
