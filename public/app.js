@@ -2,6 +2,8 @@ const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const resetTokenFromUrl=new URLSearchParams(location.search).get('resetToken');
 const state = { token: localStorage.getItem('cashly_token'), user: null, transactions: [], page: 'dashboard', period: 'month', balanceVisible: true, authMode: resetTokenFromUrl?'reset':'login', resetToken:resetTokenFromUrl };
+let lastLayoutWidth=document.documentElement.clientWidth;
+let resizeFrame=null;
 const labels = { operasi:'Uang sehari-hari', investasi:'Investasi & aset', pendanaan:'Utang & modal' };
 const icons = { operasi:'☕', investasi:'◆', pendanaan:'♢' };
 const colors = { operasi:'#3f8968', investasi:'#8275b6', pendanaan:'#e69a4b' };
@@ -301,7 +303,14 @@ function bindEvents(){
   $('#amountInput').oninput=e=>{const n=e.target.value.replace(/\D/g,'').slice(0,12);e.target.value=n?new Intl.NumberFormat('id-ID').format(n):''};
   $('#periodSelect').onchange=e=>{state.period=e.target.value;renderDashboard()};$('#reportPeriod').onchange=renderReport;$('#printReportBtn').onclick=printReport;['searchInput','typeFilter','directionFilter'].forEach(id=>$('#'+id).addEventListener(id==='searchInput'?'input':'change',renderTransactions));
   document.addEventListener('click',e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');if(edit)openTransaction(state.transactions.find(t=>t.id===edit.dataset.edit));if(del)deleteTransaction(del.dataset.delete)});
-  $('#eyeBtn').onclick=()=>{state.balanceVisible=!state.balanceVisible;updateBalanceVisibility()};window.addEventListener('resize',()=>{if(state.user&&state.page==='dashboard')renderDashboard()});
+  $('#eyeBtn').onclick=()=>{state.balanceVisible=!state.balanceVisible;updateBalanceVisibility()};
+  window.addEventListener('resize',()=>{
+    const currentWidth=document.documentElement.clientWidth;
+    if(currentWidth===lastLayoutWidth)return;
+    lastLayoutWidth=currentWidth;
+    if(resizeFrame)cancelAnimationFrame(resizeFrame);
+    resizeFrame=requestAnimationFrame(()=>{resizeFrame=null;if(state.user&&state.page==='dashboard')renderDashboard()});
+  });
   $('#onboardingNext').onclick=()=>{if(onboardingIndex<3){onboardingIndex++;renderOnboarding()}else finishOnboarding()};$('#onboardingSkip').onclick=finishOnboarding;
 }
 init();
