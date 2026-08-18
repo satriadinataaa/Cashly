@@ -1,0 +1,30 @@
+{
+  "name": "cashly",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplikasi pencatat arus kas pribadi berdasarkan PRD Cashly",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:create": "node scripts/db-create.js",
+    "db:migrate": "node scripts/db-migrate.js",
+    "db:import-json": "node scripts/migrate-json-to-postgres.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "pg-mem": "^3.0.14",
+    "supertest": "^7.1.4"
+  }
+}

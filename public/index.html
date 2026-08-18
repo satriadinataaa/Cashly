@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cashly — pencatat arus kas pribadi yang sederhana dan visual.">
+  <title>Cashly — Arus kas jadi lebih jelas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main id="authView" class="auth-shell">
+    <section class="auth-story">
+      <a class="brand brand-light" href="#"><span class="brand-mark">C</span>Cashly</a>
+      <div class="story-content">
+        <span class="eyebrow light">Keuangan, tanpa kerumitan</span>
+        <h1>Lebih paham uangmu.<br><em>Lebih tenang</em> harimu.</h1>
+        <p>Catat arus kas, temukan polanya, dan ambil keputusan yang terasa lebih ringan.</p>
+        <div class="mini-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <p class="story-note">● Data tersimpan aman & pribadi</p>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-card">
+        <span class="mobile-brand brand"><span class="brand-mark">C</span>Cashly</span>
+        <h2 id="authTitle">Selamat datang kembali</h2>
+        <p id="authSubtitle">Masuk untuk melanjutkan perjalanan finansialmu.</p>
+        <form id="authForm" novalidate>
+          <label id="nameField" class="hidden">Nama lengkap<input id="nameInput" autocomplete="name" placeholder="Nama kamu"></label>
+          <label>Email<input id="emailInput" type="email" autocomplete="email" placeholder="nama@email.com" required></label>
+          <label id="passwordField">Password<input id="passwordInput" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter" required></label>
+          <label id="confirmPasswordField" class="hidden">Ulangi password<input id="confirmPasswordInput" type="password" autocomplete="new-password" placeholder="Ketik ulang password baru"></label>
+          <button class="btn primary full" type="submit"><span id="authButtonText">Masuk ke Cashly</span><span>→</span></button>
+        </form>
+        <button id="forgotPassword" class="demo-link forgot-link" type="button">Lupa password?</button>
+        <p class="auth-switch"><span id="switchPrompt">Belum punya akun?</span> <button id="switchAuth" type="button">Daftar gratis</button></p>
+        <button id="demoLogin" class="demo-link" type="button">Coba akun demo</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard"><span class="brand-mark">C</span>Cashly</a>
+      <nav aria-label="Navigasi utama">
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span> Ringkasan</button>
+        <button class="nav-item" data-page="transactions"><span>↕</span> Transaksi</button>
+        <button class="nav-item" data-page="report"><span>▥</span> Laporan</button>
+      </nav>
+      <div class="sidebar-tip"><span>✦</span><strong>Tips Cashly</strong><p>Catat setiap hari agar kamu makin paham pola uangmu.</p></div>
+      <div class="user-block"><div id="avatar" class="avatar">R</div><div><strong id="userName">Rani</strong><small id="userEmail">rani@email.com</small></div><button id="logoutBtn" title="Keluar" aria-label="Keluar">↪</button></div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <button id="mobileMenu" class="icon-btn mobile-only" aria-label="Buka menu">☰</button>
+        <div></div>
+        <div class="top-actions"><button id="themeBtn" class="icon-btn" aria-label="Ganti tema">☾</button><button id="topAddBtn" class="btn primary"><span>＋</span> Catat transaksi</button></div>
+      </header>
+
+      <main class="content">
+        <section id="dashboardPage" class="page active">
+          <div class="page-heading"><div><span class="eyebrow">RINGKASAN KEUANGAN</span><h1>Halo, <span id="greetingName">Rani</span>! <span class="wave">👋</span></h1><p>Begini kondisi keuanganmu saat ini.</p></div><select id="periodSelect" class="select"><option value="all">Semua waktu</option><option value="today">Hari ini</option><option value="week">Minggu ini</option><option value="month" selected>Bulan ini</option></select></div>
+          <div class="balance-hero">
+            <div><span class="balance-label">SALDO KAS SAAT INI <button class="eye-btn" id="eyeBtn" aria-label="Sembunyikan saldo">◉</button></span><strong id="balanceValue">Rp 0</strong><span id="balanceDelta" class="delta">— bulan ini</span></div>
+            <div class="balance-art" aria-hidden="true"><span>Rp</span></div>
+          </div>
+          <div class="stat-grid">
+            <article class="stat-card income"><div class="stat-icon">↙</div><div><span>Income</span><strong id="incomeValue">Rp 0</strong><small id="incomeCount">0 transaksi</small></div></article>
+            <article class="stat-card expense"><div class="stat-icon">↗</div><div><span>Expense</span><strong id="expenseValue">Rp 0</strong><small id="expenseCount">0 transaksi</small></div></article>
+            <article class="stat-card"><div class="stat-icon">◆</div><div><span>Investment</span><strong id="investmentValue">Rp 0</strong><small>Alokasi investasi</small></div></article>
+            <article class="stat-card"><div class="stat-icon">↑</div><div><span>Cash Outflow</span><strong id="outflowValue">Rp 0</strong><small>Semua kas keluar</small></div></article>
+            <article class="stat-card"><div class="stat-icon">◇</div><div><span>Total Asset</span><strong id="assetValue">Rp 0</strong><small>Kas + book value</small></div></article>
+            <article class="stat-card"><div class="stat-icon">◎</div><div><span>Net Worth</span><strong id="netWorthValue">Rp 0</strong><small>Asset − liability</small></div></article>
+            <article class="stat-card streak"><div class="stat-icon">♨</div><div><span>Streak mencatat</span><strong id="streakValue">0 hari</strong><small>Terus pertahankan!</small></div></article>
+          </div>
+          <div class="chart-grid">
+            <article class="panel trend-panel"><div class="panel-head"><div><h3>Pergerakan kas</h3><p>Saldo kumulatif dari waktu ke waktu</p></div><span class="legend"><i></i> Saldo</span></div><canvas id="trendChart" height="210" aria-label="Grafik pergerakan saldo"></canvas></article>
+            <article class="panel"><div class="panel-head"><div><h3>Ke mana uangmu pergi?</h3><p>Komposisi pengeluaran</p></div></div><div class="donut-wrap"><canvas id="donutChart" width="180" height="180" aria-label="Grafik komposisi pengeluaran"></canvas><div id="donutLegend" class="donut-legend"></div></div></article>
+          </div>
+          <div class="insight-grid">
+            <article class="panel"><div class="panel-head"><div><h3>Insight untukmu</h3><p>Temuan otomatis pada periode ini</p></div><span class="insight-spark">✦</span></div><div id="insightList" class="insight-list"></div></article>
+            <article class="panel"><div class="panel-head"><div><h3>Tipe pengeluaran</h3><p>Kategori pengeluaran terbesar</p></div><span id="expenseTypeTotal" class="expense-total">Rp 0</span></div><div id="expenseTypeList" class="expense-type-list"></div></article>
+          </div>
+          <div class="section-head"><div><h3>Transaksi terbaru</h3><p>Aktivitas keuangan terakhirmu</p></div><button class="text-btn" data-goto="transactions">Lihat semua →</button></div>
+          <div id="recentList" class="transaction-list"></div>
+        </section>
+
+        <section id="transactionsPage" class="page">
+          <div class="page-heading"><div><span class="eyebrow">SEMUA AKTIVITAS</span><h1>Riwayat transaksi</h1><p>Cari dan kelola seluruh catatan keuanganmu.</p></div><button class="btn primary add-trigger">＋ Tambah transaksi</button></div>
+          <div class="filter-bar"><label class="search">⌕<input id="searchInput" placeholder="Cari kategori atau catatan..."></label><select id="typeFilter" class="select"><option value="">Semua arus kas</option><option value="operasi">Uang sehari-hari</option><option value="investasi">Investasi & aset</option><option value="pendanaan">Utang & modal</option></select><select id="directionFilter" class="select"><option value="">Masuk & keluar</option><option value="masuk">Pemasukan</option><option value="keluar">Pengeluaran</option></select></div>
+          <div id="allTransactions" class="transaction-list grouped"></div>
+        </section>
+
+        <section id="reportPage" class="page">
+          <div class="print-only report-print-head"><div class="brand"><span class="brand-mark">C</span>Cashly</div><div><strong>Laporan Arus Kas Pribadi</strong><span id="printMeta"></span></div></div>
+          <div class="page-heading"><div><span class="eyebrow">LAPORAN ARUS KAS</span><h1>Cerita di balik angkamu</h1><p>Lihat kontribusi tiap aktivitas terhadap perubahan kas.</p></div><div class="report-actions"><select id="reportPeriod" class="select"><option value="today">Hari ini</option><option value="week">Minggu ini</option><option value="month" selected>Bulan ini</option><option value="all">Semua waktu</option></select><button id="printReportBtn" class="btn primary">▣ Cetak PDF</button></div></div>
+          <article class="report-summary"><span>PERUBAHAN KAS BERSIH</span><strong id="netCash">Rp 0</strong><p id="reportNarrative">Memuat laporan...</p></article>
+          <div id="cashflowCards" class="cashflow-grid"></div>
+          <article class="panel report-table-panel"><div class="panel-head"><div><h3>Statement of Cash Flow</h3><p>Ringkasan berdasarkan klasifikasi akuntansi</p></div></div><div class="table-wrap"><table><thead><tr><th>Aktivitas</th><th>Kas masuk</th><th>Kas keluar</th><th>Arus bersih</th></tr></thead><tbody id="reportTable"></tbody><tfoot id="reportFoot"></tfoot></table></div></article>
+        </section>
+      </main>
+      <nav class="bottom-nav"><button class="active" data-page="dashboard">⌂<small>Ringkasan</small></button><button data-page="transactions">↕<small>Transaksi</small></button><button class="fab add-trigger">＋</button><button data-page="report">▥<small>Laporan</small></button><button id="mobileTheme">☾<small>Tema</small></button></nav>
+    </div>
+  </div>
+
+  <div id="transactionModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-backdrop" data-close-modal></div><div class="modal-card">
+      <div class="modal-head"><div><span class="eyebrow">CATAT CEPAT</span><h2 id="modalTitle">Tambah transaksi</h2></div><button class="close-btn" data-close-modal aria-label="Tutup">×</button></div>
+      <form id="transactionForm">
+        <div class="direction-toggle"><button type="button" data-direction="keluar" class="active">↗ Uang keluar</button><button type="button" data-direction="masuk">↙ Uang masuk</button></div>
+        <input id="editingId" type="hidden"><input id="directionInput" type="hidden" value="keluar">
+        <label>Nominal<div class="money-input"><span>Rp</span><input id="amountInput" inputmode="numeric" placeholder="0" required></div></label>
+        <div class="form-row"><label>Untuk apa?<select id="purposeInput" required></select></label><label>Kategori<select id="categoryInput" required></select></label></div>
+        <div class="form-row"><label>Tanggal<input id="dateInput" type="date" required></label><label>Catatan <small>(opsional)</small><input id="noteInput" maxlength="200" placeholder="Mis. belanja mingguan"></label></div>
+        <div class="modal-actions"><button type="button" class="btn ghost" data-close-modal>Batal</button><button type="submit" class="btn primary">Simpan transaksi →</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="onboardingModal" class="modal onboarding" role="dialog" aria-modal="true">
+    <div class="modal-backdrop"></div><div class="onboarding-card"><div id="onboardingVisual" class="onboarding-visual">🌿</div><span id="onboardingStep" class="eyebrow">LANGKAH 1 DARI 4</span><h2 id="onboardingTitle">Selamat datang di Cashly</h2><p id="onboardingText">Uangmu punya cerita. Kami membantumu melihatnya dengan cara yang sederhana.</p><div id="onboardingDots" class="dots"></div><button id="onboardingNext" class="btn primary full">Lanjut →</button><button id="onboardingSkip" class="text-btn">Lewati pengenalan</button></div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
