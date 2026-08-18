@@ -14,6 +14,16 @@ function createApp(store) {
   app.use('/api/v1', createApiRouter(store));
   app.use('/api', createApiRouter(store));
 
+  app.use((req, res, next) => {
+    if (/\.(?:html|js|css)$/i.test(req.path) || req.path === '/') {
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      });
+    }
+    next();
+  });
   app.use(express.static(path.join(__dirname, '..', 'public')));
   app.get('/{*splat}', (req, res, next) => (
     req.path.startsWith('/api/') ? next() : res.sendFile(path.join(__dirname, '..', 'public', 'index.html'))

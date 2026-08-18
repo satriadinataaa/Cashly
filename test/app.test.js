@@ -98,6 +98,15 @@ test('endpoint transaksi wajib autentikasi', async () => {
   assert.equal(res.status, 401);
 });
 
+test('asset aplikasi tidak menggunakan cache browser lama', async () => {
+  for (const path of ['/', '/app.js', '/styles.css']) {
+    const response = await request(app).get(path);
+    assert.equal(response.status, 200);
+    assert.match(response.headers['cache-control'], /no-store/);
+    assert.equal(response.headers.pragma, 'no-cache');
+  }
+});
+
 test('summary API memisahkan investment dari expense dan mempertahankan net worth', async () => {
   const registered = await request(app).post('/api/auth/register').send({ name:'Accounting Test', email:'accounting@test.id', password:'passwordku' });
   const auth = { Authorization:`Bearer ${registered.body.token}` };
