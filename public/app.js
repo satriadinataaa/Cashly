@@ -239,7 +239,15 @@ async function saveTransaction(e){
 }
 async function deleteTransaction(id){if(!confirm('Hapus transaksi ini? Tindakan ini tidak dapat dibatalkan.'))return;try{await api(`/api/transactions/${id}`,{method:'DELETE'});await loadTransactions();toast('Transaksi dihapus.')}catch(e){toast(e.message,true)}}
 
-function navigate(page){state.page=page;$$('.page').forEach(x=>x.classList.toggle('active',x.id===`${page}Page`));$$('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));$('.sidebar').classList.remove('open');scrollTo(0,0);setTimeout(renderCurrentPage,20)}
+function navigate(page){
+  window.scrollTo(0,0);
+  if(state.page===page){$('.sidebar').classList.remove('open');return}
+  state.page=page;
+  $$('.page').forEach(x=>x.classList.toggle('active',x.id===`${page}Page`));
+  $$('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
+  $('.sidebar').classList.remove('open');
+  requestAnimationFrame(renderCurrentPage);
+}
 function applyTheme(theme){document.body.classList.toggle('dark',theme==='dark');localStorage.setItem('cashly_theme',theme);$('#themeBtn').textContent=theme==='dark'?'☀':'☾';if($('#mobileTheme'))$('#mobileTheme').firstChild.textContent=theme==='dark'?'☀':'☾'}
 function toggleTheme(){applyTheme(document.body.classList.contains('dark')?'light':'dark');renderDashboard()}
 function logout(){localStorage.removeItem('cashly_token');state.token=null;state.user=null;showAuth()}
