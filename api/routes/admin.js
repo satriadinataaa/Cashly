@@ -15,8 +15,29 @@ function publicAdmin(admin) {
 
 function requestOriginIsValid(req) {
   if (!req.headers.origin) return true;
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  return req.headers.origin === `${protocol}://${req.headers.host}`;
+  // Browser modern memberi sinyal ini berdasarkan URL publik sebelum request
+  // melewati reverse proxy, sehingga tidak terpengaruh host internal proxy.
+  if (req.headers['sec-fetch-site'] === 'same-origin') return true;
+  try {
+    const origin = new URL(req.headers.origin);
+    const first = value => String(value || '').split(',')[0].trim().toLowerCase();
+    const allowedOrigins = String(process.env.ADMIN_ALLOWED_ORIGINS || '')
+      .split(',').map(value => value.trim()).filter(Boolean);
+    if (allowedOrigins.includes(origin.origin)) return true;
+
+    const hosts = new Set([
+      first(req.headers['x-forwarded-host']),
+      first(req.headers.host),
+    ].filter(Boolean));
+    const protocols = new Set([
+      first(req.headers['x-forwarded-proto']),
+      first(req.protocol),
+    ].filter(Boolean));
+    return hosts.has(origin.host.toLowerCase())
+      && protocols.has(origin.protocol.slice(0, -1).toLowerCase());
+  } catch {
+    return false;
+  }
 }
 
 function createLoginLimiter(now = () => Date.now()) {

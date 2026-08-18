@@ -90,6 +90,20 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
 });
 
 test('logout mengakhiri sesi admin dan origin asing ditolak', async () => {
+  const proxied = await request(app).post('/api/admin/auth/login')
+    .set('Host', 'cashly-internal:3000')
+    .set('Origin', 'https://cashly.example')
+    .set('X-Forwarded-Host', 'cashly.example')
+    .set('X-Forwarded-Proto', 'https')
+    .send({ username: 'admin', password: 'admin' });
+  assert.equal(proxied.status, 200);
+
+  const browserSameOrigin = await request(app).post('/api/admin/auth/login')
+    .set('Origin', 'https://cashly-public.example')
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send({ username: 'admin', password: 'admin' });
+  assert.equal(browserSameOrigin.status, 200);
+
   const forbidden = await request(app).post('/api/admin/auth/login')
     .set('Origin', 'https://evil.example')
     .send({ username: 'admin', password: 'admin' });
