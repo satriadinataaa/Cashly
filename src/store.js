@@ -10,6 +10,22 @@ function mapUser(row) {
   };
 }
 
+function mapAdminUser(row) {
+  if (!row) return null;
+  const toIso = value => (value == null ? null : new Date(value).toISOString());
+  return {
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    passwordHash: row.password_hash,
+    role: row.role,
+    active: row.active === true,
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+    lastLoginAt: toIso(row.last_login_at),
+  };
+}
+
 function mapTransaction(row) {
   if (!row) return null;
   const tanggal = row.tanggal instanceof Date
@@ -54,6 +70,41 @@ function transactionWhere(userId, filters = {}) {
 
 function createStore(pool) {
   return {
+    async findAdminByUsername(username) {
+      const result = await pool.query(
+        `SELECT id, username, name, password_hash, role, active,
+                created_at, updated_at, last_login_at
+         FROM admin_users
+         WHERE LOWER(username) = LOWER($1)
+         LIMIT 1`,
+        [String(username || '').trim()],
+      );
+      return mapAdminUser(result.rows[0]);
+    },
+
+    async findAdminById(id) {
+      const result = await pool.query(
+        `SELECT id, username, name, password_hash, role, active,
+                created_at, updated_at, last_login_at
+         FROM admin_users
+         WHERE id = $1`,
+        [id],
+      );
+      return mapAdminUser(result.rows[0]);
+    },
+
+    async updateAdminLastLogin(id, lastLoginAt = new Date()) {
+      const result = await pool.query(
+        `UPDATE admin_users
+         SET last_login_at = $2
+         WHERE id = $1
+         RETURNING id, username, name, password_hash, role, active,
+                   created_at, updated_at, last_login_at`,
+        [id, lastLoginAt],
+      );
+      return mapAdminUser(result.rows[0]);
+    },
+
     async findUserByEmail(email) {
       const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
       return mapUser(result.rows[0]);
@@ -227,4 +278,4 @@ function createStore(pool) {
   };
 }
 
-module.exports = { createStore, mapUser, mapTransaction };
+module.exports = { createStore, mapUser, mapAdminUser, mapTransaction };

@@ -3,10 +3,6 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const { newDb } = require('pg-mem');
 
-process.env.ADMIN_EMAIL = 'admin@test.id';
-process.env.ADMIN_NAME = 'Admin Test';
-process.env.ADMIN_PASSWORD = 'admin-password-test';
-process.env.ADMIN_PASSWORD_HASH = '';
 process.env.ADMIN_SESSION_SECRET = 'admin-test-secret-yang-terpisah-dari-jwt';
 
 const { createApp } = require('../src/app');
@@ -53,13 +49,13 @@ test('endpoint admin menolak akses anonim dan Bearer JWT pengguna', async () => 
 test('login admin menggunakan cookie terpisah dan dapat membuka insight global', async () => {
   const agent = request.agent(app);
   const invalid = await agent.post('/api/admin/auth/login').send({
-    email: 'admin@test.id', password: 'password-salah',
+    username: 'admin', password: 'password-salah',
   });
   assert.equal(invalid.status, 401);
   assert.equal(invalid.headers['set-cookie'], undefined);
 
   const login = await agent.post('/api/admin/auth/login').send({
-    email: 'admin@test.id', password: 'admin-password-test',
+    username: 'admin', password: 'admin',
   });
   assert.equal(login.status, 200);
   const cookie = login.headers['set-cookie'][0];
@@ -71,6 +67,7 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
   const session = await agent.get('/api/admin/session');
   assert.equal(session.status, 200);
   assert.equal(session.body.user.role, 'super_admin');
+  assert.equal(session.body.user.username, 'admin');
 
   const insights = await agent.get('/api/admin/insights');
   assert.equal(insights.status, 200);
@@ -97,12 +94,12 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
 test('logout mengakhiri sesi admin dan origin asing ditolak', async () => {
   const forbidden = await request(app).post('/api/admin/auth/login')
     .set('Origin', 'https://evil.example')
-    .send({ email: 'admin@test.id', password: 'admin-password-test' });
+    .send({ username: 'admin', password: 'admin' });
   assert.equal(forbidden.status, 403);
 
   const agent = request.agent(app);
   await agent.post('/api/admin/auth/login').send({
-    email: 'admin@test.id', password: 'admin-password-test',
+    username: 'admin', password: 'admin',
   });
   const logout = await agent.post('/api/admin/auth/logout');
   assert.equal(logout.status, 200);

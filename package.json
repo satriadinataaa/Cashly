@@ -10,7 +10,7 @@
     "db:create": "node scripts/db-create.js",
     "db:migrate": "node scripts/db-migrate.js",
     "db:import-json": "node scripts/migrate-json-to-postgres.js",
-    "admin:hash-password": "node scripts/hash-admin-password.js",
+    "admin:set-password": "node scripts/set-admin-password.js",
     "test": "node --test"
   },
   "engines": {

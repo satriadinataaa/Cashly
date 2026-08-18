@@ -38,7 +38,7 @@ async function requireAdmin() {
         const result = await request('/auth/login', {
           method: 'POST',
           body: JSON.stringify({
-            email: document.querySelector('#adminEmail').value,
+            username: document.querySelector('#adminUsername').value,
             password: document.querySelector('#adminPassword').value,
           }),
         });

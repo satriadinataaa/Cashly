@@ -1,5 +1,4 @@
 const crypto = require('node:crypto');
-const bcrypt = require('bcryptjs');
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
@@ -14,14 +13,7 @@ function resolveAdminConfig(env = process.env) {
   if (production && !env.ADMIN_SESSION_SECRET) {
     throw new Error('ADMIN_SESSION_SECRET wajib diisi pada production.');
   }
-  if (production && !env.ADMIN_PASSWORD_HASH) {
-    throw new Error('ADMIN_PASSWORD_HASH wajib diisi pada production.');
-  }
   return {
-    email: String(env.ADMIN_EMAIL || 'admin@cashly.id').trim().toLowerCase(),
-    name: String(env.ADMIN_NAME || 'Admin Raya').trim(),
-    passwordHash: String(env.ADMIN_PASSWORD_HASH || ''),
-    password: String(env.ADMIN_PASSWORD || 'CashlyAdmin2026!'),
     sessionSecret: String(env.ADMIN_SESSION_SECRET || crypto.randomBytes(32).toString('hex')),
     secureCookie: production,
   };
@@ -32,20 +24,12 @@ function signature(value, secret) {
 }
 
 function createAdminAuth(config, now = () => Date.now()) {
-  async function authenticate(email, password) {
-    const emailMatches = safeEqual(String(email || '').trim().toLowerCase(), config.email);
-    const passwordMatches = config.passwordHash
-      ? await bcrypt.compare(String(password || ''), config.passwordHash)
-      : safeEqual(String(password || ''), config.password);
-    return emailMatches && passwordMatches;
-  }
-
-  function issueSession() {
+  function issueSession(admin) {
     const payload = Buffer.from(JSON.stringify({
-      sub: 'cashly-admin',
-      email: config.email,
-      name: config.name,
-      role: 'super_admin',
+      sub: String(admin.id),
+      username: admin.username,
+      name: admin.name,
+      role: admin.role,
       exp: Math.floor(now() / 1000) + SESSION_TTL_SECONDS,
     })).toString('base64url');
     return `${payload}.${signature(payload, config.sessionSecret)}`;
@@ -57,7 +41,7 @@ function createAdminAuth(config, now = () => Date.now()) {
       if (!payload || !providedSignature || extra
           || !safeEqual(providedSignature, signature(payload, config.sessionSecret))) return null;
       const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-      if (session.sub !== 'cashly-admin' || session.role !== 'super_admin'
+      if (!session.sub || !session.username || !session.role
           || session.exp <= Math.floor(now() / 1000)) return null;
       return session;
     } catch {
@@ -67,7 +51,6 @@ function createAdminAuth(config, now = () => Date.now()) {
 
   const security = `HttpOnly; SameSite=Strict; Path=/api/admin${config.secureCookie ? '; Secure' : ''}`;
   return {
-    authenticate,
     issueSession,
     verifySession,
     sessionCookie: token => `cashly_admin_session=${token}; ${security}; Max-Age=${SESSION_TTL_SECONDS}`,

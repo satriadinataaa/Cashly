@@ -35,16 +35,18 @@ Dashboard admin menjadi bagian dari aplikasi yang sama dan tersedia di
 `http://localhost:3000/admin`. Autentikasi admin memakai cookie sesi khusus dan secret
 yang berbeda dari JWT pengguna.
 
-Untuk development, kredensial bawaan adalah `admin@cashly.id` dengan password
-`CashlyAdmin2026!`. Untuk production, buat hash password terlebih dahulu:
+Akun awal dibuat otomatis pada tabel `admin_users` saat migrasi database. Credential
+bawaannya adalah username `admin` dengan password `admin`; password disimpan sebagai
+hash bcrypt, bukan plaintext. Segera ganti password default dengan:
 
 ```bash
-npm run admin:hash-password -- "password-admin-minimal-12-karakter"
+npm run admin:set-password -- admin "password-admin-baru"
 ```
 
-Kemudian isi `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD_HASH`, dan
-`ADMIN_SESSION_SECRET` pada environment. Production tidak dapat dijalankan tanpa
-password hash dan secret admin tersebut.
+Nilai akun awal dapat diatur melalui `ADMIN_DEFAULT_USERNAME`,
+`ADMIN_DEFAULT_PASSWORD`, dan `ADMIN_DEFAULT_NAME` sebelum migrasi pertama.
+Production tetap wajib memiliki `ADMIN_SESSION_SECRET` yang berbeda dari
+`JWT_SECRET` pengguna.
 
 ## API aplikasi mobile
 

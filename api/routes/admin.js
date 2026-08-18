@@ -1,7 +1,14 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { createAdminAuth, parseCookies, resolveAdminConfig } = require('../admin/auth');
 const { buildAdminInsights } = require('../services/admin-insights');
 const { buildAdminUserList } = require('../services/admin-users');
+
+const DUMMY_PASSWORD_HASH = '$2b$12$0XU8.j8mj9COULD6TI5O/OINMDcIfhNp/FNmefn5xdneALLrXT.3y';
+
+function publicAdmin(admin) {
+  return { id: admin.id, username: admin.username, name: admin.name, role: admin.role };
+}
 
 function requestOriginIsValid(req) {
   if (!req.headers.origin) return true;
@@ -48,13 +55,19 @@ function createAdminRouter(store, options = {}) {
       res.set('Retry-After', '900');
       return res.status(429).json({ message: 'Terlalu banyak percobaan. Coba kembali dalam 15 menit.' });
     }
-    if (!(await auth.authenticate(req.body.email, req.body.password))) {
+    const username = String(req.body.username || '').trim().toLowerCase();
+    const admin = username ? await store.findAdminByUsername(username) : null;
+    const passwordMatches = await bcrypt.compare(
+      String(req.body.password || ''), admin?.passwordHash || DUMMY_PASSWORD_HASH,
+    );
+    if (!admin || !admin.active || !passwordMatches) {
       limiter.failed(limiterKey);
-      return res.status(401).json({ message: 'Email atau password admin tidak valid.' });
+      return res.status(401).json({ message: 'Username atau password admin tidak valid.' });
     }
     limiter.clear(limiterKey);
-    res.set('Set-Cookie', auth.sessionCookie(auth.issueSession()));
-    res.json({ user: { email: config.email, name: config.name, role: 'super_admin' } });
+    const loggedInAdmin = await store.updateAdminLastLogin(admin.id) || admin;
+    res.set('Set-Cookie', auth.sessionCookie(auth.issueSession(loggedInAdmin)));
+    res.json({ user: publicAdmin(loggedInAdmin) });
   });
 
   router.post('/auth/logout', (req, res) => {
@@ -63,16 +76,18 @@ function createAdminRouter(store, options = {}) {
     res.json({ message: 'Sesi admin telah berakhir.' });
   });
 
-  router.use((req, res, next) => {
+  router.use(async (req, res, next) => {
     const cookies = parseCookies(req.headers.cookie);
     const session = auth.verifySession(cookies.cashly_admin_session);
     if (!session) return res.status(401).json({ message: 'Autentikasi admin diperlukan.' });
-    req.admin = session;
+    const admin = await store.findAdminById(session.sub);
+    if (!admin || !admin.active) return res.status(401).json({ message: 'Autentikasi admin diperlukan.' });
+    req.admin = admin;
     next();
   });
 
   router.get('/session', (req, res) => {
-    res.json({ user: { email: req.admin.email, name: req.admin.name, role: req.admin.role } });
+    res.json({ user: publicAdmin(req.admin) });
   });
 
   router.get('/insights', async (req, res) => {

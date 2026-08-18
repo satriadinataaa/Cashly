@@ -1,4 +1,6 @@
 require('dotenv').config({ quiet: true });
+const crypto = require('node:crypto');
+const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
 const SCHEMA_SQL = `
@@ -40,12 +42,26 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS admin_users (
+  id uuid PRIMARY KEY,
+  username varchar(120) NOT NULL,
+  name varchar(120) NOT NULL,
+  password_hash text NOT NULL,
+  role varchar(40) NOT NULL DEFAULT 'super_admin',
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  last_login_at timestamptz
+);
+
 CREATE INDEX IF NOT EXISTS transactions_user_date_idx
   ON transactions (user_id, tanggal DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS transactions_user_type_idx ON transactions (user_id, tipe);
 CREATE INDEX IF NOT EXISTS transactions_user_direction_idx ON transactions (user_id, arah);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens (user_id);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_expiry_idx ON password_reset_tokens (expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS admin_users_username_lower_unique
+  ON admin_users (LOWER(username));
 `;
 
 function createPool(config = {}) {
@@ -61,8 +77,38 @@ function createPool(config = {}) {
   });
 }
 
-async function migrate(pool) {
-  await pool.query(SCHEMA_SQL);
+function defaultAdminConfig(env = process.env) {
+  return {
+    username: String(env.ADMIN_DEFAULT_USERNAME || 'admin').trim(),
+    password: String(env.ADMIN_DEFAULT_PASSWORD || 'admin'),
+    name: String(env.ADMIN_DEFAULT_NAME || 'Administrator').trim(),
+  };
 }
 
-module.exports = { createPool, migrate, SCHEMA_SQL };
+async function seedDefaultAdmin(pool, env = process.env) {
+  const admin = defaultAdminConfig(env);
+  if (!admin.username || !admin.password || !admin.name) {
+    throw new Error('ADMIN_DEFAULT_USERNAME, ADMIN_DEFAULT_PASSWORD, dan ADMIN_DEFAULT_NAME tidak boleh kosong.');
+  }
+
+  const existing = await pool.query(
+    'SELECT id FROM admin_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+    [admin.username],
+  );
+  if (existing.rows[0]) return;
+
+  const passwordHash = await bcrypt.hash(admin.password, 12);
+  await pool.query(
+    `INSERT INTO admin_users (id, username, name, password_hash, role, active)
+     VALUES ($1, $2, $3, $4, 'super_admin', true)
+     ON CONFLICT DO NOTHING`,
+    [crypto.randomUUID(), admin.username, admin.name, passwordHash],
+  );
+}
+
+async function migrate(pool, env = process.env) {
+  await pool.query(SCHEMA_SQL);
+  await seedDefaultAdmin(pool, env);
+}
+
+module.exports = { createPool, migrate, SCHEMA_SQL, defaultAdminConfig, seedDefaultAdmin };
