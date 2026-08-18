@@ -104,15 +104,48 @@ test('logout mengakhiri sesi admin dan origin asing ditolak', async () => {
     .send({ username: 'admin', password: 'admin' });
   assert.equal(browserSameOrigin.status, 200);
 
-  const forbidden = await request(app).post('/api/admin/auth/login')
+  const foreignLogin = await request(app).post('/api/admin/auth/login')
     .set('Origin', 'https://evil.example')
     .send({ username: 'admin', password: 'admin' });
-  assert.equal(forbidden.status, 403);
+  assert.equal(foreignLogin.status, 403);
+
+  const aliasLogin = await request(app).post('/api/admin/auth/login')
+    .set('Host', 'cashlymoneytracker.online')
+    .set('Origin', 'https://www.cashlymoneytracker.online')
+    .set('X-Forwarded-Proto', 'https')
+    .send({ username: 'admin', password: 'admin' });
+  assert.equal(aliasLogin.status, 200);
+
+  const wrongPort = await request(app).post('/api/admin/auth/login')
+    .set('Host', 'cashlymoneytracker.online')
+    .set('Origin', 'https://cashlymoneytracker.online:4443')
+    .set('X-Forwarded-Proto', 'https')
+    .send({ username: 'admin', password: 'admin' });
+  assert.equal(wrongPort.status, 403);
+
+  const bodyWithoutJson = await request(app).post('/api/admin/auth/login')
+    .set('Content-Type', 'text/plain')
+    .send('username=admin&password=admin');
+  assert.equal(bodyWithoutJson.status, 401);
 
   const agent = request.agent(app);
   await agent.post('/api/admin/auth/login').send({
     username: 'admin', password: 'admin',
   });
+  const foreignLogout = await agent.post('/api/admin/auth/logout')
+    .set('Origin', 'https://evil.example');
+  assert.equal(foreignLogout.status, 403);
+
+  const aliasAgent = request.agent(app);
+  await aliasAgent.post('/api/admin/auth/login').send({
+    username: 'admin', password: 'admin',
+  });
+  const aliasLogout = await aliasAgent.post('/api/admin/auth/logout')
+    .set('Host', 'cashlymoneytracker.online')
+    .set('Origin', 'https://www.cashlymoneytracker.online')
+    .set('X-Forwarded-Proto', 'https');
+  assert.equal(aliasLogout.status, 200);
+
   const logout = await agent.post('/api/admin/auth/logout');
   assert.equal(logout.status, 200);
   assert.match(logout.headers['set-cookie'][0], /Max-Age=0/);

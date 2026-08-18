@@ -17,7 +17,7 @@ function requestOriginIsValid(req) {
   if (!req.headers.origin) return true;
   // Browser modern memberi sinyal ini berdasarkan URL publik sebelum request
   // melewati reverse proxy, sehingga tidak terpengaruh host internal proxy.
-  if (req.headers['sec-fetch-site'] === 'same-origin') return true;
+  if (String(req.headers['sec-fetch-site'] || '').toLowerCase() === 'same-origin') return true;
   try {
     const origin = new URL(req.headers.origin);
     const first = value => String(value || '').split(',')[0].trim().toLowerCase();
@@ -25,16 +25,32 @@ function requestOriginIsValid(req) {
       .split(',').map(value => value.trim()).filter(Boolean);
     if (allowedOrigins.includes(origin.origin)) return true;
 
-    const hosts = new Set([
-      first(req.headers['x-forwarded-host']),
-      first(req.headers.host),
-    ].filter(Boolean));
+    const normalizeHostname = value => String(value || '').toLowerCase().replace(/^www\./, '');
+    const parseAuthority = (value) => {
+      const authority = first(value);
+      if (!authority) return null;
+      try {
+        const parsed = new URL(`http://${authority}`);
+        return { hostname: normalizeHostname(parsed.hostname), port: parsed.port };
+      } catch {
+        return null;
+      }
+    };
+    const hosts = [
+      parseAuthority(req.headers['x-forwarded-host']),
+      parseAuthority(req.headers.host),
+    ].filter(Boolean);
     const protocols = new Set([
       first(req.headers['x-forwarded-proto']),
       first(req.protocol),
     ].filter(Boolean));
-    return hosts.has(origin.host.toLowerCase())
-      && protocols.has(origin.protocol.slice(0, -1).toLowerCase());
+    const originProtocol = origin.protocol.slice(0, -1).toLowerCase();
+    const defaultPort = originProtocol === 'https' ? '443' : originProtocol === 'http' ? '80' : '';
+    const originPort = origin.port || defaultPort;
+    return protocols.has(originProtocol) && hosts.some(host => (
+      host.hostname === normalizeHostname(origin.hostname)
+      && (host.port || defaultPort) === originPort
+    ));
   } catch {
     return false;
   }
@@ -78,10 +94,11 @@ function createAdminRouter(store, options = {}) {
       res.set('Retry-After', '900');
       return res.status(429).json({ message: 'Terlalu banyak percobaan. Coba kembali dalam 15 menit.' });
     }
-    const username = String(req.body.username || '').trim().toLowerCase();
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const username = String(body.username || '').trim().toLowerCase();
     const admin = username ? await store.findAdminByUsername(username) : null;
     const passwordMatches = await bcrypt.compare(
-      String(req.body.password || ''), admin?.passwordHash || DUMMY_PASSWORD_HASH,
+      String(body.password || ''), admin?.passwordHash || DUMMY_PASSWORD_HASH,
     );
     if (!admin || !admin.active || !passwordMatches) {
       limiter.failed(limiterKey);
