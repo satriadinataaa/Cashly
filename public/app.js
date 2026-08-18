@@ -2,6 +2,7 @@ const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const resetTokenFromUrl=new URLSearchParams(location.search).get('resetToken');
 const state = { token: localStorage.getItem('cashly_token'), user: null, transactions: [], page: 'dashboard', period: 'month', balanceVisible: true, authMode: resetTokenFromUrl?'reset':'login', resetToken:resetTokenFromUrl };
+const dirtyPages=new Set(['dashboard','transactions','report']);
 let lastLayoutWidth=document.documentElement.clientWidth;
 let resizeFrame=null;
 const labels = { operasi:'Uang sehari-hari', investasi:'Investasi & aset', pendanaan:'Utang & modal' };
@@ -125,11 +126,14 @@ async function enterApp(dataLoaded=false){
   if(!dataLoaded)await loadTransactions();else renderCurrentPage();
   if(!state.user.onboardingDone) openOnboarding();
 }
-async function loadTransactions(){ state.transactions=await api('/api/transactions'); renderCurrentPage(); }
+async function loadTransactions(){ state.transactions=await api('/api/transactions');markAllPagesDirty();renderCurrentPage(); }
+function markAllPagesDirty(){dirtyPages.add('dashboard');dirtyPages.add('transactions');dirtyPages.add('report')}
 function renderCurrentPage(){
+  if(!dirtyPages.has(state.page))return;
   if(state.page==='dashboard')renderDashboard();
   else if(state.page==='transactions')renderTransactions();
   else if(state.page==='report')renderReport();
+  dirtyPages.delete(state.page);
 }
 
 function renderDashboard(){
@@ -199,7 +203,7 @@ function canvasSetup(canvas){
   if(!canvas) return null;
   const dpr=devicePixelRatio||1,rect=canvas.getBoundingClientRect();
   if(rect.width===0) return null;
-  const h=Number(canvas.getAttribute('height'))||rect.height;
+  const h=Math.round(rect.height)||Number(canvas.getAttribute('height'));
   canvas.width=rect.width*dpr;canvas.height=h*dpr;canvas.style.height=`${h}px`;
   const ctx=canvas.getContext('2d');
   if(!ctx) return null;
@@ -249,7 +253,7 @@ function navigate(page){
   requestAnimationFrame(renderCurrentPage);
 }
 function applyTheme(theme){document.body.classList.toggle('dark',theme==='dark');localStorage.setItem('cashly_theme',theme);$('#themeBtn').textContent=theme==='dark'?'☀':'☾';if($('#mobileTheme'))$('#mobileTheme').firstChild.textContent=theme==='dark'?'☀':'☾'}
-function toggleTheme(){applyTheme(document.body.classList.contains('dark')?'light':'dark');renderDashboard()}
+function toggleTheme(){applyTheme(document.body.classList.contains('dark')?'light':'dark');if(state.page==='dashboard')renderDashboard();else dirtyPages.add('dashboard')}
 function logout(){localStorage.removeItem('cashly_token');state.token=null;state.user=null;showAuth()}
 
 function setAuthMode(mode){
