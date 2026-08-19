@@ -39,7 +39,7 @@ function createAuthRouter(store, mailer) {
       const created = await store.createUser(user);
       const verificationToken = await sendVerification(created);
       const response = {
-        message: 'Pendaftaran berhasil. Konfirmasi email untuk membuka fitur transaksi bulk.',
+        message: 'Pendaftaran berhasil. Periksa Inbox, Spam, atau Junk lalu konfirmasi email untuk membuka fitur transaksi bulk.',
         token: tokenFor(created),
         user: publicUser(created),
       };
@@ -62,7 +62,7 @@ function createAuthRouter(store, mailer) {
   router.post('/resend-verification', async (req, res) => {
     const email = String(req.body.email || '').trim().toLowerCase();
     const user = await store.findUserByEmail(email);
-    const response = { message: 'Jika akun belum aktif, email konfirmasi baru telah dikirim.' };
+    const response = { message: 'Jika akun belum aktif, email konfirmasi baru telah dikirim. Periksa juga folder Spam atau Junk.' };
     if (!user || user.emailVerifiedAt) return res.json(response);
     const verificationToken = await sendVerification(user);
     if (process.env.NODE_ENV !== 'production') response.verificationToken = verificationToken;

@@ -17,6 +17,7 @@ async function registerAndVerify(path, payload) {
   const registered = await request(app).post(`${path}/auth/register`).send(payload);
   assert.equal(registered.status, 201);
   assert.match(registered.body.verificationToken, /^[a-f0-9]{64}$/);
+  assert.match(registered.body.message, /Spam|Junk/);
   assert.equal(registered.body.user.emailVerified, false);
   const pendingLogin = await request(app).post(`${path}/auth/login`).send({ email: payload.email, password: payload.password });
   assert.equal(pendingLogin.status, 200);

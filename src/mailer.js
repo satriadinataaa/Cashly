@@ -35,8 +35,8 @@ function createMailer(env = process.env) {
         from: config.from,
         to: email,
         subject: 'Konfirmasi email akun Cashly',
-        text: `Halo ${name},\n\nKonfirmasi email akun Cashly kamu melalui tautan berikut:\n${verificationUrl}\n\nTautan ini berlaku selama 24 jam. Jika kamu tidak mendaftar, abaikan email ini.`,
-        html: `<p>Halo ${escapeHtml(name)},</p><p>Konfirmasi email akun Cashly kamu dengan menekan tombol berikut:</p><p><a href="${verificationUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#287557;color:#fff;text-decoration:none;font-weight:700">Konfirmasi email</a></p><p>Tautan ini berlaku selama 24 jam. Jika kamu tidak mendaftar, abaikan email ini.</p>`,
+        text: `Halo ${name},\n\nKonfirmasi email akun Cashly kamu melalui tautan berikut:\n${verificationUrl}\n\nJika email ini tidak terlihat di Inbox, periksa folder Spam atau Junk. Tautan ini berlaku selama 24 jam. Tanpa verifikasi email, fitur input transaksi bulk tidak dapat digunakan. Jika kamu tidak mendaftar, abaikan email ini.`,
+        html: `<p>Halo ${escapeHtml(name)},</p><p>Konfirmasi email akun Cashly kamu dengan menekan tombol berikut:</p><p><a href="${verificationUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#287557;color:#fff;text-decoration:none;font-weight:700">Konfirmasi email</a></p><p>Jika email ini tidak terlihat di <strong>Inbox</strong>, periksa folder <strong>Spam</strong> atau <strong>Junk</strong>.</p><p>Tautan ini berlaku selama 24 jam. Tanpa verifikasi email, fitur input transaksi bulk tidak dapat digunakan.</p><p>Jika kamu tidak mendaftar, abaikan email ini.</p>`,
       });
     },
   };
