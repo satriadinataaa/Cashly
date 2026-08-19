@@ -46,6 +46,7 @@ body.dark{--bg:#101814;--surface:#17221c;--surface-2:#202e27;--text:#edf4ef;--mu
 .flow-values{gap:12px;flex-wrap:wrap}
 .flow-values>div{min-width:0}
 .sidebar{overflow-y:auto;overscroll-behavior-y:contain;padding-bottom:max(30px,env(safe-area-inset-bottom))}
+.sidebar-head{display:flex;align-items:center;justify-content:space-between}.sidebar-close{place-items:center}
 
 @media(max-width:1250px){
   .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

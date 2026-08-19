@@ -45,8 +45,11 @@
   </main>
 
   <div id="appView" class="app hidden">
-    <aside class="sidebar">
-      <a class="brand" href="#dashboard"><span class="brand-mark">C</span>Cashly</a>
+    <aside class="sidebar" id="userSidebar">
+      <div class="sidebar-head">
+        <a class="brand" href="#dashboard"><span class="brand-mark">C</span>Cashly</a>
+        <button id="mobileMenuClose" class="icon-btn mobile-only sidebar-close" type="button" aria-label="Tutup menu">&times;</button>
+      </div>
       <nav aria-label="Navigasi utama">
         <button class="nav-item active" data-page="dashboard"><span>⌂</span> Ringkasan</button>
         <button class="nav-item" data-page="transactions"><span>↕</span> Transaksi</button>
@@ -58,7 +61,7 @@
 
     <div class="main-shell">
       <header class="topbar">
-        <button id="mobileMenu" class="icon-btn mobile-only" aria-label="Buka menu">☰</button>
+        <button id="mobileMenu" class="icon-btn mobile-only" type="button" aria-label="Buka menu" aria-controls="userSidebar" aria-expanded="false">☰</button>
         <div></div>
         <div class="top-actions"><button id="themeBtn" class="icon-btn" aria-label="Ganti tema">☾</button><button id="topAddBtn" class="btn primary"><span>＋</span> Catat transaksi</button></div>
       </header>

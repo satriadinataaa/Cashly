@@ -272,13 +272,17 @@ async function saveTransaction(e){
 }
 async function deleteTransaction(id){if(!confirm('Hapus transaksi ini? Tindakan ini tidak dapat dibatalkan.'))return;try{await api(`/api/transactions/${id}`,{method:'DELETE'});await loadTransactions();toast('Transaksi dihapus.')}catch(e){toast(e.message,true)}}
 
+function setMobileMenu(open){
+  $('#userSidebar').classList.toggle('open',open);
+  $('#mobileMenu').setAttribute('aria-expanded',String(open));
+}
 function navigate(page){
   window.scrollTo(0,0);
-  if(state.page===page){$('.sidebar').classList.remove('open');return}
+  if(state.page===page){setMobileMenu(false);return}
   state.page=page;
   $$('.page').forEach(x=>x.classList.toggle('active',x.id===`${page}Page`));
   $$('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
-  $('.sidebar').classList.remove('open');
+  setMobileMenu(false);
   requestAnimationFrame(renderCurrentPage);
 }
 function applyTheme(theme){document.body.classList.toggle('dark',theme==='dark');localStorage.setItem('cashly_theme',theme);$('#themeBtn').textContent=theme==='dark'?'☀':'☾';if($('#mobileTheme'))$('#mobileTheme').firstChild.textContent=theme==='dark'?'☀':'☾'}
@@ -332,7 +336,9 @@ function bindEvents(){
   $('#switchAuth').onclick=()=>setAuthMode(state.authMode==='login'?'register':'login');
   $('#forgotPassword').onclick=()=>setAuthMode('forgot');
   $('#demoLogin').onclick=async()=>{try{let data;try{data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:'demo@cashly.id',password:'democashly'})})}catch{data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({name:'Rani',email:'demo@cashly.id',password:'democashly'})})}state.token=data.token;state.user=data.user;localStorage.setItem('cashly_token',data.token);await enterApp()}catch(e){toast(e.message,true)}};
-  $('#logoutBtn').onclick=logout;$('#themeBtn').onclick=toggleTheme;$('#mobileTheme').onclick=toggleTheme;$('#mobileMenu').onclick=()=>$('.sidebar').classList.toggle('open');
+  $('#logoutBtn').onclick=logout;$('#themeBtn').onclick=toggleTheme;$('#mobileTheme').onclick=toggleTheme;
+  $('#mobileMenu').onclick=()=>setMobileMenu(!$('#userSidebar').classList.contains('open'));
+  $('#mobileMenuClose').onclick=()=>setMobileMenu(false);
   $$('[data-page]').forEach(x=>x.onclick=()=>navigate(x.dataset.page));$$('[data-goto]').forEach(x=>x.onclick=()=>navigate(x.dataset.goto));$$('.add-trigger').forEach(x=>x.onclick=()=>openTransaction());$('#topAddBtn').onclick=()=>openTransaction();
   $$('[data-close-modal]').forEach(x=>x.onclick=closeTransaction);$$('.direction-toggle button').forEach(x=>x.onclick=()=>{
     const previous=$('#directionInput').value;
