@@ -39,9 +39,7 @@ function createAuthRouter(store, mailer) {
       const created = await store.createUser(user);
       const verificationToken = await sendVerification(created);
       const response = {
-        message: 'Pendaftaran berhasil. Periksa Inbox, Spam, atau Junk lalu konfirmasi email untuk membuka fitur transaksi bulk.',
-        token: tokenFor(created),
-        user: publicUser(created),
+        message: 'Pendaftaran berhasil. Periksa Inbox, Spam, atau Junk lalu konfirmasi email sebelum login ke Cashly.',
       };
       if (process.env.NODE_ENV !== 'production') response.verificationToken = verificationToken;
       res.status(201).json(response);

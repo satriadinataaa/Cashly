@@ -19,7 +19,7 @@ function createApiRouter(store, services = {}) {
   router.use('/auth', createAuthRouter(store, services.mailer));
   router.use('/catalog', createCatalogRouter());
 
-  router.use(createAuthMiddleware());
+  router.use(createAuthMiddleware(store));
   router.use('/me', createUsersRouter(store));
   router.use('/transactions', createTransactionsRouter(store));
   router.use('/', createAnalyticsRouter(store));

@@ -370,8 +370,10 @@ function bindEvents(){
       }
       const payload={email:$('#emailInput').value,password:$('#passwordInput').value};if(state.authMode==='register')payload.name=$('#nameInput').value;
       const data=await api(`/api/auth/${state.authMode}`,{method:'POST',body:JSON.stringify(payload)});
+      if(state.authMode==='register'){
+        setAuthMode('login');$('#passwordInput').value='';toast(data.message);return;
+      }
       state.token=data.token;state.user=data.user;localStorage.setItem('cashly_token',data.token);await enterApp();
-      if(state.authMode==='register')toast(data.message);
     }catch(e){toast(e.message,true)}
   });
   $('#switchAuth').onclick=()=>setAuthMode(state.authMode==='login'?'register':'login');
