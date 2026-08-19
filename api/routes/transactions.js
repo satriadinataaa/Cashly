@@ -106,6 +106,8 @@ function createTransactionsRouter(store) {
   });
 
   router.post('/bulk', async (req, res) => {
+    const user = await store.findUserById(req.userId);
+    if (!user?.emailVerifiedAt) return res.status(403).json({ message: 'Konfirmasi email diperlukan untuk menggunakan input transaksi bulk.' });
     if (!Array.isArray(req.body.transactions) || req.body.transactions.length < 2 || req.body.transactions.length > 50) return res.status(400).json({ message: 'Jumlah transaksi harus antara 2 dan 50.' });
     for (let index = 0; index < req.body.transactions.length; index += 1) {
       const error = validTransaction(req.body.transactions[index]);

@@ -193,7 +193,7 @@ function renderUsers(data) {
   renderUserSummary(data.summary);
   document.querySelector('#usersResultLabel').textContent = `${data.pagination.totalItems.toLocaleString('id-ID')} pengguna ditemukan`;
   if (!data.items.length) {
-    body.innerHTML = '<tr><td colspan="6" class="users-loading">Tidak ada pengguna yang sesuai dengan pencarian.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="users-loading">Tidak ada pengguna yang sesuai dengan pencarian.</td></tr>';
   } else {
     body.innerHTML = data.items.map(user => {
       const initials = user.name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
@@ -204,6 +204,7 @@ function renderUsers(data) {
         <td><strong class="table-number">${escapeHtml(user.totalVolumeLabel)}</strong></td>
         <td><span class="table-date">${escapeHtml(user.lastActivityLabel)}</span></td>
         <td><span class="table-date">${escapeHtml(user.joinedAtLabel)}</span></td>
+        <td><button class="delete-user-button" type="button" data-delete-user="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.name)}" data-transaction-count="${user.transactionCount}">Hapus</button></td>
       </tr>`;
     }).join('');
   }
@@ -220,7 +221,7 @@ function renderUsers(data) {
 
 async function loadUsers() {
   const body = document.querySelector('#usersTableBody');
-  body.innerHTML = '<tr><td colspan="6" class="users-loading">Memuat pengguna dari database...</td></tr>';
+  body.innerHTML = '<tr><td colspan="7" class="users-loading">Memuat pengguna dari database...</td></tr>';
   const params = new URLSearchParams({ page: userState.page, limit: userState.limit, status: userState.status });
   if (userState.q) params.set('q', userState.q);
   try {
@@ -650,6 +651,31 @@ document.addEventListener('click', event => {
   if (control.tagName === 'A' && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
   event.preventDefault();
   openAdminRoute({ view: 'detail', key: control.dataset.metricKey });
+});
+document.querySelector('#usersTableBody').addEventListener('click', async event => {
+  const button = event.target.closest('[data-delete-user]');
+  if (!button) return;
+  const transactionCount = Number(button.dataset.transactionCount || 0);
+  const confirmed = window.confirm(
+    `Hapus pengguna "${button.dataset.userName}"?\n\n${transactionCount.toLocaleString('id-ID')} transaksi dan seluruh data akun akan ikut dihapus permanen.`,
+  );
+  if (!confirmed) return;
+  button.disabled = true;
+  button.textContent = 'Menghapus...';
+  try {
+    const result = await request(`/users/${encodeURIComponent(button.dataset.deleteUser)}`, { method: 'DELETE' });
+    toast(result.message);
+    userState.loaded = false;
+    transactionState.loaded = false;
+    reportState.loaded = false;
+    overviewState = null;
+    await loadUsers();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Hapus';
+    if (error.status === 401) return window.location.reload();
+    toast(error.message);
+  }
 });
 let userSearchTimer;
 document.querySelector('#userSearch').addEventListener('input', event => {

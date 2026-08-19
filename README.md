@@ -27,7 +27,9 @@ npm run db:migrate
 npm start
 ```
 
-Buka `http://localhost:3000`. Setiap akun baru dimulai dengan arus kas kosong dan seluruh transaksi hanya dapat diakses oleh pemilik akun tersebut.
+Buka `http://localhost:3000`. Setiap akun baru harus mengonfirmasi alamat email sebelum
+dapat masuk, dimulai dengan arus kas kosong, dan seluruh transaksi hanya dapat diakses
+oleh pemilik akun tersebut.
 
 ## Dashboard admin
 
@@ -69,7 +71,11 @@ npm test
 
 ## Konfigurasi
 
-Salin `.env.example` bila menggunakan pemuat environment sendiri, atau set environment variable `PORT` dan `JWT_SECRET` sebelum menjalankan server. Pada production, `JWT_SECRET` wajib diganti dengan nilai acak yang kuat dan aplikasi wajib ditempatkan di belakang HTTPS.
+Salin `.env.example`, lalu set `PORT`, `JWT_SECRET`, `APP_URL`, dan credential SMTP
+(`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`).
+`APP_URL` digunakan sebagai alamat tujuan pada tautan konfirmasi email. Pada production,
+`JWT_SECRET` wajib diganti dengan nilai acak yang kuat dan aplikasi wajib ditempatkan di
+belakang HTTPS.
 
 Seluruh akun dan transaksi disimpan di PostgreSQL. Tabel dan indeks juga dibuat otomatis
 saat startup. Untuk mengimpor data dari penyimpanan JSON versi lama satu kali, jalankan:

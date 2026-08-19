@@ -8,6 +8,7 @@ function mapUser(row) {
     email: row.email,
     passwordHash: row.password_hash,
     onboardingDone: row.onboarding_done,
+    emailVerifiedAt: row.email_verified_at ? new Date(row.email_verified_at).toISOString() : null,
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -196,11 +197,57 @@ function createStore(pool) {
 
     async createUser(user) {
       const result = await pool.query(
-        `INSERT INTO users (id, name, email, password_hash, onboarding_done, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [user.id, user.name, user.email, user.passwordHash, user.onboardingDone, user.createdAt],
+        `INSERT INTO users (id, name, email, password_hash, onboarding_done, email_verified_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [user.id, user.name, user.email, user.passwordHash, user.onboardingDone, user.emailVerifiedAt, user.createdAt],
       );
       return mapUser(result.rows[0]);
+    },
+
+    async createEmailVerificationToken(token) {
+      await pool.query(
+        `UPDATE email_verification_tokens SET used_at = now()
+         WHERE user_id = $1 AND used_at IS NULL`,
+        [token.userId],
+      );
+      await pool.query(
+        `INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [token.id, token.userId, token.tokenHash, token.expiresAt, token.createdAt],
+      );
+    },
+
+    async verifyEmail(tokenHash) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await client.query(
+          `SELECT id, user_id FROM email_verification_tokens
+           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+           FOR UPDATE`,
+          [tokenHash],
+        );
+        const token = result.rows[0];
+        if (!token) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+        const userResult = await client.query(
+          'UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1 RETURNING *',
+          [token.user_id],
+        );
+        await client.query(
+          'UPDATE email_verification_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL',
+          [token.user_id],
+        );
+        await client.query('COMMIT');
+        return mapUser(userResult.rows[0]);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
     },
 
     async completeOnboarding(userId) {
@@ -221,6 +268,34 @@ function createStore(pool) {
         onboardingDone: row.onboarding_done,
         createdAt: new Date(row.created_at).toISOString(),
       }));
+    },
+
+    async deleteUserForAdmin(userId) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const transactionResult = await client.query(
+          'SELECT COUNT(*)::int AS count FROM transactions WHERE user_id = $1',
+          [userId],
+        );
+        const deleted = await client.query('DELETE FROM users WHERE id = $1 RETURNING id, name, email', [userId]);
+        if (!deleted.rows[0]) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+        await client.query('COMMIT');
+        return {
+          id: deleted.rows[0].id,
+          name: deleted.rows[0].name,
+          email: deleted.rows[0].email,
+          deletedTransactions: Number(transactionResult.rows[0]?.count || 0),
+        };
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
     },
 
     async listTransactionsForAdmin() {

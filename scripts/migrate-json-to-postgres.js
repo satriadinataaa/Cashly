@@ -18,9 +18,9 @@ async function run() {
     await client.query('BEGIN');
     for (const user of data.users || []) {
       await client.query(
-        `INSERT INTO users (id, name, email, password_hash, onboarding_done, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
-        [user.id, user.name, user.email, user.passwordHash, !!user.onboardingDone, user.createdAt],
+        `INSERT INTO users (id, name, email, password_hash, onboarding_done, email_verified_at, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
+        [user.id, user.name, user.email, user.passwordHash, !!user.onboardingDone, user.createdAt, user.createdAt],
       );
     }
     for (const row of data.transactions || []) {

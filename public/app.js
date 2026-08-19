@@ -1,12 +1,25 @@
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const resetTokenFromUrl=new URLSearchParams(location.search).get('resetToken');
+const emailVerificationTokenFromUrl=new URLSearchParams(location.search).get('verifyEmailToken');
 const state = { token: localStorage.getItem('cashly_token'), user: null, transactions: [], page: 'dashboard', period: 'month', balanceVisible: true, authMode: resetTokenFromUrl?'reset':'login', resetToken:resetTokenFromUrl };
 const dirtyPages=new Set(['dashboard','transactions','report']);
 let lastLayoutWidth=document.documentElement.clientWidth;
 let resizeFrame=null;
 const labels = { operasi:'Uang sehari-hari', investasi:'Investasi & aset', pendanaan:'Utang & modal' };
 const icons = { operasi:'☕', investasi:'◆', pendanaan:'♢' };
+const transactionIcons = {
+  'Kebutuhan sehari-hari':'🛒',
+  'Rumah tangga & tagihan':'🏠',
+  'Pekerjaan & usaha':'💼',
+  'Kesehatan & pendidikan':'🩺',
+  'Hiburan & gaya hidup':'🎮',
+  'Investasi keuangan':'📈',
+  'Aset & properti':'🏡',
+  'Pengembangan usaha':'🏭',
+  'Pinjaman & cicilan':'💳',
+  'Modal & bagi hasil':'🤝'
+};
 const colors = { operasi:'#3f8968', investasi:'#8275b6', pendanaan:'#e69a4b' };
 const purposes = [
   {value:'operasi_keseharian',tipe:'operasi',label:'Kebutuhan sehari-hari'},
@@ -113,6 +126,13 @@ function totals(rows){
 async function init(){
   applyTheme(localStorage.getItem('cashly_theme') || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
   bindEvents();
+  if(emailVerificationTokenFromUrl){
+    showAuth();
+    try{
+      const result=await api('/api/auth/verify-email',{method:'POST',body:JSON.stringify({token:emailVerificationTokenFromUrl})});
+      history.replaceState({},'',location.pathname);toast(result.message);
+    }catch(error){toast(error.message,true)}
+  }
   if(!state.token) return showAuth();
   try {
     const [user,transactions]=await Promise.all([api('/api/me'),api('/api/transactions')]);
@@ -124,7 +144,9 @@ async function enterApp(dataLoaded=false){
   $('#authView').classList.add('hidden'); $('#appView').classList.remove('hidden');
   $('#userName').textContent=state.user.name; $('#userEmail').textContent=state.user.email; $('#avatar').textContent=state.user.name[0].toUpperCase(); $('#greetingName').textContent=state.user.name.split(' ')[0];
   if(!dataLoaded)await loadTransactions();else renderCurrentPage();
-  if(!state.user.onboardingDone) openOnboarding();
+  updateEmailVerificationState();
+  if(!state.user.emailVerified) openEmailVerification();
+  else if(!state.user.onboardingDone) openOnboarding();
 }
 async function loadTransactions(){ state.transactions=await api('/api/transactions');markAllPagesDirty();renderCurrentPage(); }
 function markAllPagesDirty(){dirtyPages.add('dashboard');dirtyPages.add('transactions');dirtyPages.add('report')}
@@ -170,7 +192,8 @@ function renderList(container, rows, grouped=false){
   if(!rows.length){container.innerHTML='<div class="empty">Belum ada transaksi pada periode ini.</div>';return}
   let last=''; container.innerHTML=rows.map(t=>{let header='';if(grouped&&t.tanggal!==last){last=t.tanggal;header=`<div class="date-header">${dateLabel(t.tanggal)}</div>`}return header+transactionHTML(t)}).join('');
 }
-function transactionHTML(t){ const detail=[t.tujuan,t.deskripsi].filter(Boolean).join(' · ')||labels[t.tipe];return `<div class="transaction-row" data-id="${t.id}"><div class="txn-icon ${t.tipe}">${icons[t.tipe]}</div><div class="txn-info"><strong>${escapeHtml(t.kategori)}</strong><small>${escapeHtml(detail)}${t.sample?' · Contoh':''}</small></div><div class="txn-meta">${dateLabel(t.tanggal)}<br>${labels[t.tipe]}</div><div><div class="txn-amount ${t.arah}">${t.arah==='masuk'?'+':'−'} ${rupiah(t.nominal)}</div><div class="txn-actions"><button data-edit="${t.id}" aria-label="Edit">✎</button><button data-delete="${t.id}" aria-label="Hapus">⌫</button></div></div></div>`; }
+function transactionIcon(t){return transactionIcons[t.tujuan]||icons[t.tipe]||(t.arah==='masuk'?'↙':'↗')}
+function transactionHTML(t){ const detail=[t.tujuan,t.deskripsi].filter(Boolean).join(' · ')||labels[t.tipe];return `<div class="transaction-row" data-id="${t.id}"><div class="txn-icon ${t.tipe}" aria-hidden="true">${transactionIcon(t)}</div><div class="txn-info"><strong>${escapeHtml(t.kategori)}</strong><small>${escapeHtml(detail)}${t.sample?' · Contoh':''}</small></div><div class="txn-meta">${dateLabel(t.tanggal)}<br>${labels[t.tipe]}</div><div><div class="txn-amount ${t.arah}">${t.arah==='masuk'?'+':'−'} ${rupiah(t.nominal)}</div><div class="txn-actions"><button data-edit="${t.id}" aria-label="Edit">✎</button><button data-delete="${t.id}" aria-label="Hapus">⌫</button></div></div></div>`; }
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 function renderTransactions(){
@@ -241,6 +264,7 @@ function addMultipleRow(values={}){
 }
 function renumberMultipleRows(){ $$('.multiple-row').forEach((row,index)=>{$('strong',row).textContent=`Transaksi ${index+1}`;$('.remove-row',row).disabled=$$('.multiple-row').length<=2}) }
 function setEntryMode(mode){
+  if(mode==='multiple'&&!state.user?.emailVerified){openEmailVerification();return}
   const multiple=mode==='multiple';$('#singleTransactionFields').classList.toggle('hidden',multiple);$('#multipleTransactionFields').classList.toggle('hidden',!multiple);$('.modal-card',$('#transactionModal')).classList.toggle('multiple-mode',multiple);
   $$('[data-entry-mode]').forEach(button=>button.classList.toggle('active',button.dataset.entryMode===mode));
   $$('input,select',$('#singleTransactionFields')).forEach(input=>input.disabled=multiple);$$('input,select',$('#multipleTransactionFields')).forEach(input=>input.disabled=!multiple);
@@ -289,6 +313,21 @@ function applyTheme(theme){document.body.classList.toggle('dark',theme==='dark')
 function toggleTheme(){applyTheme(document.body.classList.contains('dark')?'light':'dark');if(state.page==='dashboard')renderDashboard();else dirtyPages.add('dashboard')}
 function logout(){localStorage.removeItem('cashly_token');state.token=null;state.user=null;showAuth()}
 
+function updateEmailVerificationState(){
+  const multipleButton=$('[data-entry-mode="multiple"]');
+  const verified=!!state.user?.emailVerified;
+  multipleButton.disabled=!verified;
+  multipleButton.title=verified?'':'Konfirmasi email untuk menggunakan transaksi bulk';
+}
+function openEmailVerification(){
+  $('#verificationEmail').textContent=state.user?.email||$('#emailInput').value;
+  $('#emailVerificationModal').classList.add('open');
+}
+function closeEmailVerification(){
+  $('#emailVerificationModal').classList.remove('open');
+  if(state.user&&!state.user.onboardingDone)openOnboarding();
+}
+
 function setAuthMode(mode){
   state.authMode=mode;
   const register=mode==='register',forgot=mode==='forgot',reset=mode==='reset';
@@ -330,15 +369,19 @@ function bindEvents(){
         history.replaceState({},'',location.pathname);$('#passwordInput').value='';$('#confirmPasswordInput').value='';setAuthMode('login');toast(data.message);return;
       }
       const payload={email:$('#emailInput').value,password:$('#passwordInput').value};if(state.authMode==='register')payload.name=$('#nameInput').value;
-      const data=await api(`/api/auth/${state.authMode}`,{method:'POST',body:JSON.stringify(payload)});state.token=data.token;state.user=data.user;localStorage.setItem('cashly_token',data.token);await enterApp();
+      const data=await api(`/api/auth/${state.authMode}`,{method:'POST',body:JSON.stringify(payload)});
+      state.token=data.token;state.user=data.user;localStorage.setItem('cashly_token',data.token);await enterApp();
+      if(state.authMode==='register')toast(data.message);
     }catch(e){toast(e.message,true)}
   });
   $('#switchAuth').onclick=()=>setAuthMode(state.authMode==='login'?'register':'login');
   $('#forgotPassword').onclick=()=>setAuthMode('forgot');
-  $('#demoLogin').onclick=async()=>{try{let data;try{data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:'demo@cashly.id',password:'democashly'})})}catch{data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({name:'Rani',email:'demo@cashly.id',password:'democashly'})})}state.token=data.token;state.user=data.user;localStorage.setItem('cashly_token',data.token);await enterApp()}catch(e){toast(e.message,true)}};
+  $('#demoLogin').onclick=async()=>{try{const credentials={email:'demo@cashly.id',password:'democashly'};let data;try{data=await api('/api/auth/login',{method:'POST',body:JSON.stringify(credentials)})}catch{const registered=await api('/api/auth/register',{method:'POST',body:JSON.stringify({name:'Rani',...credentials})});if(!registered.verificationToken)throw new Error('Akun demo perlu dikonfirmasi melalui email.');await api('/api/auth/verify-email',{method:'POST',body:JSON.stringify({token:registered.verificationToken})});data=await api('/api/auth/login',{method:'POST',body:JSON.stringify(credentials)})}state.token=data.token;state.user=data.user;localStorage.setItem('cashly_token',data.token);await enterApp()}catch(e){toast(e.message,true)}};
   $('#logoutBtn').onclick=logout;$('#themeBtn').onclick=toggleTheme;$('#mobileTheme').onclick=toggleTheme;
   $('#mobileMenu').onclick=()=>setMobileMenu(!$('#userSidebar').classList.contains('open'));
   $('#mobileMenuClose').onclick=()=>setMobileMenu(false);
+  $('#resendVerification').onclick=async()=>{const button=$('#resendVerification');button.disabled=true;try{const result=await api('/api/auth/resend-verification',{method:'POST',body:JSON.stringify({email:state.user.email})});toast(result.message)}catch(error){toast(error.message,true)}finally{button.disabled=false}};
+  $('#dismissVerification').onclick=closeEmailVerification;
   $$('[data-page]').forEach(x=>x.onclick=()=>navigate(x.dataset.page));$$('[data-goto]').forEach(x=>x.onclick=()=>navigate(x.dataset.goto));$$('.add-trigger').forEach(x=>x.onclick=()=>openTransaction());$('#topAddBtn').onclick=()=>openTransaction();
   $$('[data-close-modal]').forEach(x=>x.onclick=closeTransaction);$$('.direction-toggle button').forEach(x=>x.onclick=()=>{
     const previous=$('#directionInput').value;

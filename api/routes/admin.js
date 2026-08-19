@@ -167,6 +167,19 @@ function createAdminRouter(store, options = {}) {
     res.json(buildAdminUserList(users, transactions, req.query));
   });
 
+  router.delete('/users/:id', async (req, res) => {
+    if (!requestOriginIsValid(req)) return res.status(403).json({ message: 'Origin permintaan tidak valid.' });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.params.id)) {
+      return res.status(400).json({ message: 'ID pengguna tidak valid.' });
+    }
+    const deleted = await store.deleteUserForAdmin(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    res.json({
+      message: `Pengguna dan ${deleted.deletedTransactions} transaksi berhasil dihapus.`,
+      user: deleted,
+    });
+  });
+
   router.get('/transactions', async (req, res) => {
     const [users, transactions] = await Promise.all([
       store.listUsersForAdmin(),

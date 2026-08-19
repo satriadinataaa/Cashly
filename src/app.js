@@ -3,10 +3,12 @@ const path = require('node:path');
 const helmet = require('helmet');
 const { createApiRouter } = require('../api');
 const { createAdminRouter } = require('../api/routes/admin');
+const { createMailer } = require('./mailer');
 
-function createApp(store) {
+function createApp(store, services = {}) {
   if (!store) throw new Error('Store PostgreSQL wajib diberikan ke createApp().');
   const app = express();
+  const appServices = { mailer: services.mailer || createMailer() };
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(express.json({ limit: '100kb' }));
@@ -16,8 +18,8 @@ function createApp(store) {
   app.use('/api/admin', createAdminRouter(store));
 
   // /api dipertahankan untuk web; /api/v1 menjadi kontrak stabil untuk aplikasi mobile.
-  app.use('/api/v1', createApiRouter(store));
-  app.use('/api', createApiRouter(store));
+  app.use('/api/v1', createApiRouter(store, appServices));
+  app.use('/api', createApiRouter(store, appServices));
 
   app.use((req, res, next) => {
     if (/\.(?:html|js|css)$/i.test(req.path) || req.path === '/') {

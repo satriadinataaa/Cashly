@@ -10,13 +10,33 @@ const { createStore } = require('../src/store');
 const memoryDb = newDb();
 const { Pool } = memoryDb.adapters.createPg();
 const pool = new Pool();
-const app = createApp(createStore(pool));
+const sentVerificationEmails = [];
+const app = createApp(createStore(pool), { mailer: { sendVerification: async email => sentVerificationEmails.push(email) } });
+
+async function registerAndVerify(path, payload) {
+  const registered = await request(app).post(`${path}/auth/register`).send(payload);
+  assert.equal(registered.status, 201);
+  assert.match(registered.body.verificationToken, /^[a-f0-9]{64}$/);
+  assert.equal(registered.body.user.emailVerified, false);
+  const pendingLogin = await request(app).post(`${path}/auth/login`).send({ email: payload.email, password: payload.password });
+  assert.equal(pendingLogin.status, 200);
+  assert.equal(pendingLogin.body.user.emailVerified, false);
+  const blockedBulk = await request(app).post(`${path}/transactions/bulk`)
+    .set('Authorization', `Bearer ${pendingLogin.body.token}`).send({ transactions: [] });
+  assert.equal(blockedBulk.status, 403);
+  const verified = await request(app).post(`${path}/auth/verify-email`).send({ token: registered.body.verificationToken });
+  assert.equal(verified.status, 200);
+  const login = await request(app).post(`${path}/auth/login`).send({ email: payload.email, password: payload.password });
+  assert.equal(login.body.user.emailVerified, true);
+  return login;
+}
 
 test.before(async () => migrate(pool));
 
 test('register membuat user baru dengan arus kas kosong', async () => {
-  const res = await request(app).post('/api/auth/register').send({ name:'Rani Test', email:'rani@test.id', password:'passwordku' });
-  assert.equal(res.status, 201); assert.ok(res.body.token); assert.equal(res.body.user.email, 'rani@test.id');
+  const res = await registerAndVerify('/api', { name:'Rani Test', email:'rani@test.id', password:'passwordku' });
+  assert.equal(res.status, 200); assert.ok(res.body.token); assert.equal(res.body.user.email, 'rani@test.id');
+  assert.equal(sentVerificationEmails[0].email, 'rani@test.id');
   const rows = await request(app).get('/api/transactions').set('Authorization', `Bearer ${res.body.token}`);
   assert.equal(rows.status, 200); assert.equal(rows.body.length, 0);
 });
@@ -82,7 +102,7 @@ test('arus kas terisolasi untuk setiap user', async () => {
   const firstAuth = { Authorization:`Bearer ${firstLogin.body.token}` };
   await request(app).post('/api/transactions').set(firstAuth).send({ tanggal:'2026-08-11', tipe:'operasi', arah:'masuk', kategori:'Gaji', deskripsi:'Milik Rani', nominal:5000000 });
 
-  const second = await request(app).post('/api/auth/register').send({ name:'Dimas Test', email:'dimas@test.id', password:'passwordku' });
+  const second = await registerAndVerify('/api', { name:'Dimas Test', email:'dimas@test.id', password:'passwordku' });
   const secondAuth = { Authorization:`Bearer ${second.body.token}` };
   const secondRows = await request(app).get('/api/transactions').set(secondAuth);
   assert.equal(secondRows.status, 200);
@@ -108,7 +128,7 @@ test('asset aplikasi tidak menggunakan cache browser lama', async () => {
 });
 
 test('summary API memisahkan investment dari expense dan mempertahankan net worth', async () => {
-  const registered = await request(app).post('/api/auth/register').send({ name:'Accounting Test', email:'accounting@test.id', password:'passwordku' });
+  const registered = await registerAndVerify('/api', { name:'Accounting Test', email:'accounting@test.id', password:'passwordku' });
   const auth = { Authorization:`Bearer ${registered.body.token}` };
   await request(app).post('/api/transactions').set(auth).send({ tanggal:'2026-08-13', tipe:'operasi', jenis:'income', arah:'masuk', kategori:'Gaji', nominal:25_000_000 });
   const investment = await request(app).post('/api/transactions').set(auth).send({ tanggal:'2026-08-13', tipe:'investasi', jenis:'investment', arah:'keluar', kategori:'Pembelian Reksadana', nominal:5_400_000, assetId:'portfolio' });
@@ -138,7 +158,7 @@ test('API v1 menyediakan health check dan katalog transaksi untuk mobile', async
 });
 
 test('API v1 mendukung detail, patch, dan pagination transaksi mobile', async () => {
-  const registered = await request(app).post('/api/v1/auth/register').send({
+  const registered = await registerAndVerify('/api/v1', {
     name: 'Mobile Test', email: 'mobile@test.id', password: 'passwordku',
   });
   const auth = { Authorization: `Bearer ${registered.body.token}` };

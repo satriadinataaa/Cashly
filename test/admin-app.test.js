@@ -10,7 +10,7 @@ const { createStore } = require('../src/store');
 const memoryDb = newDb();
 const { Pool } = memoryDb.adapters.createPg();
 const pool = new Pool();
-const app = createApp(createStore(pool));
+const app = createApp(createStore(pool), { mailer: { sendVerification: async () => {} } });
 
 test.before(async () => migrate(pool));
 test.after(async () => pool.end());
@@ -57,7 +57,9 @@ test('endpoint admin menolak akses anonim dan Bearer JWT pengguna', async () => 
   const registered = await request(app).post('/api/auth/register').send({
     name: 'User Biasa', email: 'user-biasa@test.id', password: 'passwordku',
   });
-  const userJwt = registered.body.token;
+  await request(app).post('/api/auth/verify-email').send({ token: registered.body.verificationToken });
+  const userLogin = await request(app).post('/api/auth/login').send({ email: 'user-biasa@test.id', password: 'passwordku' });
+  const userJwt = userLogin.body.token;
   const withUserJwt = await request(app).get('/api/admin/insights')
     .set('Authorization', `Bearer ${userJwt}`);
   assert.equal(withUserJwt.status, 401);
@@ -113,6 +115,14 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
   assert.equal(searchedUsers.status, 200);
   assert.equal(searchedUsers.body.items[0].email, 'user-biasa@test.id');
 
+  const userLogin = await request(app).post('/api/auth/login').send({
+    email: 'user-biasa@test.id', password: 'passwordku',
+  });
+  const userTransaction = await request(app).post('/api/transactions')
+    .set('Authorization', `Bearer ${userLogin.body.token}`)
+    .send({ tanggal: '2026-08-19', tipe: 'operasi', arah: 'keluar', kategori: 'Makan', nominal: 25000 });
+  assert.equal(userTransaction.status, 201);
+
   const transactions = await agent.get('/api/admin/transactions?period=all&limit=5');
   assert.equal(transactions.status, 200);
   assert.equal(transactions.body.pagination.limit, 5);
@@ -123,6 +133,18 @@ test('login admin menggunakan cookie terpisah dan dapat membuka insight global',
   assert.equal(report.body.period.key, 'year');
   assert.equal(Array.isArray(report.body.cashFlow), true);
   assert.equal(JSON.stringify({ transactions: transactions.body, report: report.body }).includes('passwordHash'), false);
+
+  const userId = searchedUsers.body.items[0].id;
+  const foreignDelete = await agent.delete(`/api/admin/users/${userId}`)
+    .set('Origin', 'https://evil.example');
+  assert.equal(foreignDelete.status, 403);
+  const deleted = await agent.delete(`/api/admin/users/${userId}`);
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.body.user.deletedTransactions, 1);
+  assert.equal((await agent.get('/api/admin/users')).body.pagination.totalItems, 0);
+  assert.equal((await agent.get('/api/admin/transactions?period=all')).body.pagination.totalItems, 0);
+  assert.equal((await agent.delete(`/api/admin/users/${userId}`)).status, 404);
+  assert.equal((await agent.delete('/api/admin/users/bukan-uuid')).status, 400);
 
   const unknown = await agent.get('/api/admin/tidak-ada');
   assert.equal(unknown.status, 404);

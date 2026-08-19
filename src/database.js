@@ -10,8 +10,14 @@ CREATE TABLE IF NOT EXISTS users (
   email varchar(320) NOT NULL UNIQUE,
   password_hash text NOT NULL,
   onboarding_done boolean NOT NULL DEFAULT false,
+  email_verified_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Baris lama langsung dianggap terverifikasi. Default sementara hanya berlaku
+-- ketika kolom ditambahkan pada database yang sudah ada.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz DEFAULT now();
+ALTER TABLE users ALTER COLUMN email_verified_at DROP DEFAULT;
 
 CREATE TABLE IF NOT EXISTS transactions (
   id uuid PRIMARY KEY,
@@ -34,6 +40,15 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash char(64) NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash char(64) NOT NULL UNIQUE,
@@ -69,6 +84,8 @@ CREATE INDEX IF NOT EXISTS transactions_user_type_idx ON transactions (user_id, 
 CREATE INDEX IF NOT EXISTS transactions_user_direction_idx ON transactions (user_id, arah);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens (user_id);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_expiry_idx ON password_reset_tokens (expires_at);
+CREATE INDEX IF NOT EXISTS email_verification_tokens_user_idx ON email_verification_tokens (user_id);
+CREATE INDEX IF NOT EXISTS email_verification_tokens_expiry_idx ON email_verification_tokens (expires_at);
 CREATE UNIQUE INDEX IF NOT EXISTS admin_users_username_lower_unique
   ON admin_users (LOWER(username));
 CREATE INDEX IF NOT EXISTS admin_sessions_admin_user_idx

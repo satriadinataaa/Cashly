@@ -6,7 +6,7 @@ const { createTransactionsRouter } = require('./routes/transactions');
 const { createAnalyticsRouter } = require('./routes/analytics');
 const { createCatalogRouter } = require('./routes/catalog');
 
-function createApiRouter(store) {
+function createApiRouter(store, services = {}) {
   const router = express.Router();
 
   router.get('/', (req, res) => res.json({
@@ -16,7 +16,7 @@ function createApiRouter(store) {
     catalog: `${req.baseUrl}/catalog`,
   }));
   router.get('/health', (req, res) => res.json({ status: 'ok', service: 'cashly-api' }));
-  router.use('/auth', createAuthRouter(store));
+  router.use('/auth', createAuthRouter(store, services.mailer));
   router.use('/catalog', createCatalogRouter());
 
   router.use(createAuthMiddleware());
