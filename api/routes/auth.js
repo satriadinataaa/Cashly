@@ -75,6 +75,9 @@ function createAuthRouter(store, mailer) {
     if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.passwordHash))) {
       return res.status(401).json({ message: 'Email atau password salah.' });
     }
+    if (!user.emailVerifiedAt) {
+      return res.status(403).json({ message: 'Email belum dikonfirmasi. Periksa Inbox, Spam, atau Junk sebelum login kembali.' });
+    }
     res.json({ token: tokenFor(user), user: publicUser(user) });
   });
 

@@ -20,10 +20,9 @@ async function registerAndVerify(path, payload) {
   assert.match(registered.body.message, /Spam|Junk/);
   assert.equal(registered.body.user.emailVerified, false);
   const pendingLogin = await request(app).post(`${path}/auth/login`).send({ email: payload.email, password: payload.password });
-  assert.equal(pendingLogin.status, 200);
-  assert.equal(pendingLogin.body.user.emailVerified, false);
+  assert.equal(pendingLogin.status, 403);
   const blockedBulk = await request(app).post(`${path}/transactions/bulk`)
-    .set('Authorization', `Bearer ${pendingLogin.body.token}`).send({ transactions: [] });
+    .set('Authorization', `Bearer ${registered.body.token}`).send({ transactions: [] });
   assert.equal(blockedBulk.status, 403);
   const verified = await request(app).post(`${path}/auth/verify-email`).send({ token: registered.body.verificationToken });
   assert.equal(verified.status, 200);
