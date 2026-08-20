@@ -11,7 +11,11 @@ const memoryDb = newDb();
 const { Pool } = memoryDb.adapters.createPg();
 const pool = new Pool();
 const sentVerificationEmails = [];
-const app = createApp(createStore(pool), { mailer: { sendVerification: async email => sentVerificationEmails.push(email) } });
+const sentPasswordResetEmails = [];
+const app = createApp(createStore(pool), { mailer: {
+  sendVerification: async email => sentVerificationEmails.push(email),
+  sendPasswordReset: async email => sentPasswordResetEmails.push(email),
+} });
 
 async function registerAndVerify(path, payload) {
   const registered = await request(app).post(`${path}/auth/register`).send(payload);
@@ -48,6 +52,10 @@ test('password dapat direset dengan token sekali pakai', async () => {
   const requested = await request(app).post('/api/auth/forgot-password').send({ email:'rani@test.id' });
   assert.equal(requested.status, 200);
   assert.match(requested.body.resetToken, /^[a-f0-9]{64}$/);
+  assert.equal(sentPasswordResetEmails.length, 1);
+  assert.equal(sentPasswordResetEmails[0].email, 'rani@test.id');
+  assert.equal(sentPasswordResetEmails[0].name, 'Rani Test');
+  assert.equal(sentPasswordResetEmails[0].token, requested.body.resetToken);
 
   const reset = await request(app).post('/api/auth/reset-password').send({
     token: requested.body.resetToken,

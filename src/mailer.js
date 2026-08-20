@@ -39,6 +39,17 @@ function createMailer(env = process.env) {
         html: `<p>Halo ${escapeHtml(name)},</p><p>Konfirmasi email akun Cashly kamu dengan menekan tombol berikut:</p><p><a href="${verificationUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#287557;color:#fff;text-decoration:none;font-weight:700">Konfirmasi email</a></p><p>Jika email ini tidak terlihat di <strong>Inbox</strong>, periksa folder <strong>Spam</strong> atau <strong>Junk</strong>.</p><p>Tautan ini berlaku selama 24 jam. Tanpa verifikasi email, fitur input transaksi bulk tidak dapat digunakan.</p><p>Jika kamu tidak mendaftar, abaikan email ini.</p>`,
       });
     },
+    async sendPasswordReset({ email, name, token }) {
+      if (!transporter) throw new Error(`Konfigurasi SMTP belum lengkap: ${missing.join(', ')}.`);
+      const resetUrl = `${config.appUrl}/?resetToken=${encodeURIComponent(token)}`;
+      await transporter.sendMail({
+        from: config.from,
+        to: email,
+        subject: 'Reset password akun Cashly',
+        text: `Halo ${name},\n\nKami menerima permintaan untuk mengatur ulang password akun Cashly kamu. Gunakan tautan berikut:\n${resetUrl}\n\nTautan ini berlaku selama 30 menit. Jika kamu tidak meminta reset password, abaikan email ini.`,
+        html: `<p>Halo ${escapeHtml(name)},</p><p>Kami menerima permintaan untuk mengatur ulang password akun Cashly kamu.</p><p><a href="${resetUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#287557;color:#fff;text-decoration:none;font-weight:700">Atur ulang password</a></p><p>Tautan ini berlaku selama 30 menit.</p><p>Jika kamu tidak meminta reset password, abaikan email ini.</p>`,
+      });
+    },
   };
 }
 

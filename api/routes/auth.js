@@ -91,6 +91,7 @@ function createAuthRouter(store, mailer) {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       createdAt: new Date().toISOString(),
     });
+    await mailer.sendPasswordReset({ email: user.email, name: user.name, token: rawToken });
     if (process.env.NODE_ENV !== 'production') response.resetToken = rawToken;
     res.json(response);
   });
